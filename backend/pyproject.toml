@@ -1,0 +1,29 @@
+[project]
+name = "pp1875-classifier"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi==0.115.6",
+    "uvicorn[standard]==0.34.0",
+    "python-multipart==0.0.20",
+    "pydantic-settings==2.7.1",
+    "sqlalchemy==2.0.36",
+    "psycopg[binary]==3.2.3",
+    "pgvector==0.3.6",
+    "celery[redis]==5.4.0",
+    "sentence-transformers==3.3.1",
+    "transformers==4.47.1",
+    "numpy==2.2.1",
+    "openpyxl==3.1.5",
+    "httpx==0.28.1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest==8.3.4"]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["models: тесты, загружающие ML-модели (медленные)"]

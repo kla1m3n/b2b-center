@@ -8,13 +8,16 @@ def item(codes, appendix, item_no="1", exclusions=(), title="позиция", qu
                      regime=REGIME_BY_APPENDIX[appendix], quota=quota, exclusions=list(exclusions))
 
 
-def test_covers_by_levels():
+def test_covers_by_okpd2_digit_hierarchy():
+    # ОКПД2: класс 26 → подкласс 26.2 → группа 26.20 → подгруппа 26.20.1 → вид 26.20.11 → категория 26.20.11.110
     assert code_covers("26.20", "26.20.11.110")
     assert code_covers("26.20.11.110", "26.20.11.110")
     assert code_covers("22", "22.29.29.190")
-    assert not code_covers("26.2", "26.20.11")
+    assert code_covers("26.2", "26.20.11")
+    assert code_covers("26.20.1", "26.20.11.110")
     assert not code_covers("26.20.11", "26.20")
-    assert not code_covers("26.20.1", "26.20.11.110")
+    assert not code_covers("26.20.1", "26.20.21.000")
+    assert not code_covers("26.20.11.110", "26.20.11.120")
 
 
 def test_exclusion_overrides_parent():

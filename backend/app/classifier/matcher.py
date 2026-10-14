@@ -21,9 +21,12 @@ class NpaItemLike(Protocol):
 
 
 def code_covers(parent: str, code: str) -> bool:
-    """Код позиции `parent` покрывает `code`, если совпадают все его уровни (через точку)."""
-    p, c = parent.split("."), code.split(".")
-    return len(p) <= len(c) and c[: len(p)] == p
+    """Код позиции `parent` покрывает `code`, если цифры parent — префикс цифр code.
+
+    Иерархия ОКПД2 цифровая: подгруппа 26.20.1 включает вид 26.20.11, подкласс 26.2 — группу 26.20
+    (проверено на всех 21 081 коде справочника).
+    """
+    return code.replace(".", "").startswith(parent.replace(".", ""))
 
 
 def _item_no_key(item_no: str) -> tuple[int, ...]:

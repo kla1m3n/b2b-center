@@ -77,7 +77,7 @@ GPU — отдельный файл `docker-compose.gpu.yml` (для демо н
 
 ## 4. Данные
 
-Источники (проверить в фазе 0):
+Источники (проверены в фазе 0, см. `docs/npa-structure.md`; базовая редакция — открытые ежедневно обновляемые выгрузки из Кодекса и Росстата, конвертер `backend/scripts/import_open_data.py`; формат загрузки новой редакции — JSON или XLSX):
 - **ОКПД2 (ОК 034-2014)** — открытые выгрузки CSV/XLSX (~20 тыс. позиций, иерархия по коду).
 - **ПП № 1875 от 23.12.2024** — официальный текст с приложениями (publication.pravo.gov.ru / pravo.gov.ru). Перед парсингом **проверить фактическую структуру приложений** (какие перечни, какие режимы, как оформлены коды и исключения) и зафиксировать её в `docs/npa-structure.md`.
 - **Синонимы** — генерируются один раз при разработке (LLM) для кодов, встречающихся в ПП, и для популярных товарных групп; хранятся в репозитории как `data/okpd2_synonyms.csv`, в рантайме LLM не нужен.
@@ -86,7 +86,7 @@ GPU — отдельный файл `docker-compose.gpu.yml` (для демо н
 - `okpd2_code(code PK, title, parent_code, level)`
 - `okpd2_text(id, code FK, text, kind[official|synonym], embedding vector)`
 - `npa_version(id, title, source_url, uploaded_at, is_active, status[parsing|ready|failed])`
-- `npa_item(id, version FK, appendix, item_no, okpd2_code, title, regime, exclusions jsonb, raw_text)`
+- `npa_item(id, version FK, appendix, item_no, codes text[], title, regime, quota int null, exclusions text[], note, has_conditions bool)` — структура уточнена по факту в `docs/npa-structure.md`: у позиции список кодов, у прил. 3 доля российских товаров, исключения в источнике записаны текстом (флаг `has_conditions`).
 - `classification_cache(norm_name, npa_version, result jsonb)`
 - `job(id, status, total, done, created_at)` / `job_item(job FK, idx, input, result jsonb)`
 
@@ -121,7 +121,7 @@ GPU — отдельный файл `docker-compose.gpu.yml` (для демо н
   "alternatives": [{"code": "...", "title": "...", "confidence": 0.07}],
   "confidence": 0.92,
   "needs_review": false,
-  "npa_matches": [{"regime": "restriction", "appendix": 2, "item_no": "15", "title": "...", "source_url": "..."}],
+  "npa_matches": [{"item_id": 812, "regime": "restriction", "appendix": 2, "item_no": "195", "title": "...", "matched_code": "26.20.11", "quota": null, "has_conditions": false, "note": "", "source_url": "..."}],
   "verdict": "restriction",
   "explanation": "..."
 }

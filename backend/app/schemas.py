@@ -60,3 +60,16 @@ class HealthOut(BaseModel):
     db: bool
     models: bool
     npa_version: str | None
+
+
+class JobCreated(BaseModel):
+    job_id: str
+
+
+class JobOut(BaseModel):
+    job_id: str
+    status: str  # queued | running | done | failed
+    total: int
+    done: int
+    error: str | None = None
+    results: list[ClassificationResult] | None = None

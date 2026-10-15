@@ -15,4 +15,10 @@ COPY pyproject.toml ./
 RUN mkdir app && touch app/__init__.py && pip install ".[dev]" && pip uninstall -y pp1875-classifier && rm -rf app
 ENV PYTHONPATH=/app
 
+ARG EMBED_MODEL=intfloat/multilingual-e5-base
+ARG RERANK_MODEL=BAAI/bge-reranker-v2-m3
+COPY scripts/download_models.py scripts/
+RUN python scripts/download_models.py ${EMBED_MODEL} ${RERANK_MODEL}
+ENV HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
+
 COPY . .

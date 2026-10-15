@@ -26,7 +26,7 @@ services:
       REDIS_URL: redis://redis:6379/0
     volumes:
       - ./data:/data:ro
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    command: sh -c "python -m app.seed && uvicorn app.main:app --host 0.0.0.0 --port 8000"
     ports:
       - "8000:8000"
     depends_on:
@@ -45,7 +45,7 @@ services:
       REDIS_URL: redis://redis:6379/0
     volumes:
       - ./data:/data:ro
-    command: celery -A app.celery_app worker --loglevel=info --concurrency=1
+    command: sh -c "python -m app.seed && celery -A app.celery_app worker --loglevel=info --concurrency=1"
     depends_on:
       db:
         condition: service_healthy

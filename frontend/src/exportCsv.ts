@@ -1,0 +1,38 @@
+// Выгрузка результатов в CSV, который Excel открывает без мастера импорта (UTF-8 с BOM, разделитель «;»).
+// Колонки как у backend-экспорта .xlsx (план, задача 8). Нужна, пока нет /api/jobs/{id}/export.xlsx
+// и для одиночной проверки, у которой нет задачи на backend.
+import { REGIME_LABELS, type ClassificationResult } from "./types";
+
+const HEADER = ["Товар", "Код ОКПД2", "Наименование ОКПД2", "Режим", "Приложение", "Пункт", "Уверенность, %", "Проверить вручную"];
+
+function cell(v: string | number): string {
+  const s = String(v);
+  return /[";\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+export function resultsToCsv(results: ClassificationResult[]): string {
+  const rows = results.map((r) => {
+    const top = r.npa_matches[0];
+    return [
+      r.input,
+      r.okpd2?.code ?? "",
+      r.okpd2?.title ?? r.error ?? "",
+      r.error ? "" : REGIME_LABELS[r.verdict],
+      top ? top.appendix : "",
+      r.npa_matches.map((m) => `${m.appendix}:${m.item_no}`).join(", "),
+      r.error ? "" : Math.round(r.confidence * 100),
+      r.needs_review ? "да" : "",
+    ];
+  });
+  return "﻿" + [HEADER, ...rows].map((row) => row.map(cell).join(";")).join("\r\n");
+}
+
+export function downloadCsv(results: ClassificationResult[], filename = "pp1875-results.csv"): void {
+  const blob = new Blob([resultsToCsv(results)], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}

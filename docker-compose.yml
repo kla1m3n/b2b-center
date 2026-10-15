@@ -33,7 +33,8 @@ services:
       - ./data:/data:ro
     command: sh -c "python -m app.seed && uvicorn app.main:app --host 0.0.0.0 --port 8000"
     ports:
-      - "8000:8000"
+      # Только с этого компьютера (Swagger на localhost:8000/docs); снаружи API доступен лишь через web
+      - "127.0.0.1:8000:8000"
     depends_on:
       db:
         condition: service_healthy
@@ -58,6 +59,19 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        # VITE_USE_MOCKS=true docker compose up --build — сайт на заглушках, пока на backend нет API
+        VITE_USE_MOCKS: ${VITE_USE_MOCKS:-false}
+    image: pp1875-web
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
 
 volumes:
   pgdata:

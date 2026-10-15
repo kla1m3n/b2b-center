@@ -1,0 +1,86 @@
+/* Каркас страницы в стиле ЕИС: белые полосы шапки и навигации, серый фон контента */
+.topbar {
+  background: #fff;
+  border-bottom: 1px solid var(--mantine-color-default-border);
+}
+.header {
+  background: #fff;
+}
+.nav {
+  background: #fff;
+  border-top: 1px solid var(--mantine-color-default-border);
+  border-bottom: 1px solid var(--mantine-color-default-border);
+}
+
+.logo-mark {
+  display: grid;
+  grid-template-columns: repeat(4, 6px);
+  gap: 3px;
+}
+.logo-mark span {
+  width: 6px;
+  height: 6px;
+  border-radius: 1px;
+  background: var(--mantine-color-eis-6);
+}
+.logo-mark span:nth-child(3n) {
+  opacity: 0.45;
+}
+.logo-text {
+  color: var(--mantine-color-eis-6);
+  font-weight: 300;
+  font-size: 22px;
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+/* Навигация как пункты меню ЕИС: текст без рамок, активный — синий с подчёркиванием */
+.nav-tabs .mantine-Tabs-list::before {
+  display: none;
+}
+.nav-tabs .mantine-Tabs-tab {
+  padding: 18px 0;
+  margin-right: 30px;
+  font-size: 16px;
+  color: var(--mantine-color-text);
+  border-bottom-width: 3px;
+}
+.nav-tabs .mantine-Tabs-tab:hover {
+  background: transparent;
+  color: var(--mantine-color-eis-6);
+}
+.nav-tabs .mantine-Tabs-tab[data-active] {
+  color: var(--mantine-color-eis-6);
+}
+
+/* Подписи-разделы как «ГЛАВНАЯ НОВОСТЬ» в ЕИС */
+.caps-label {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* Фон области контента — серый, как в ЕИС; карточки и поля остаются белыми (--mantine-color-body) */
+.page-content {
+  background-color: #eff0f2;
+  min-height: calc(100vh - 180px);
+}
+
+/* Карточка результата на телефоне — как запись реестра в ЕИС: белая, плоская, цветная полоса режима слева */
+.result-card {
+  background: #fff;
+  border: 1px solid var(--mantine-color-default-border);
+  border-left: 4px solid;
+  border-radius: 2px;
+  padding: 12px 14px;
+}
+.result-card__field {
+  margin-top: 10px;
+}
+.result-card__toggle {
+  margin-top: 10px;
+  font-size: 14px;
+  color: var(--mantine-color-eis-6);
+}

@@ -18,3 +18,12 @@ def test_retrieve_one_list_per_query_and_unique_codes(seeded_session, embedder):
         codes = [c.code for c in cands]
         assert len(codes) == len(set(codes))
         assert all(cands[i].score >= cands[i + 1].score for i in range(len(cands) - 1))
+
+
+@pytest.mark.models
+def test_retrieve_returns_only_leaf_codes(seeded_session, embedder):
+    from app.models import Okpd2Code
+
+    leaf = {c.code for c in seeded_session.query(Okpd2Code).filter_by(is_leaf=True)}
+    cands = retrieve(seeded_session, embedder.encode_queries(["компьютеры"]), k=20)[0]
+    assert cands and all(c.code in leaf for c in cands)

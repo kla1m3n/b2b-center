@@ -1,0 +1,5 @@
+# GPU-вариант для разработки и демо: тот же образ, но torch с CUDA (модели не перекачиваются).
+ARG BASE_IMAGE=b2b-center-api
+FROM ${BASE_IMAGE}
+RUN pip install "torch==2.5.1+cu121" --index-url https://download.pytorch.org/whl/cu121
+COPY . .

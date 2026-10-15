@@ -26,6 +26,7 @@ def retrieve(session: Session, query_vecs: np.ndarray, k: int) -> list[list[Cand
         rows = session.execute(
             select(Okpd2Text.code, Okpd2Text.text, Okpd2Code.title, (1 - dist).label("score"))
             .join(Okpd2Code, Okpd2Code.code == Okpd2Text.code)
+            .where(Okpd2Code.is_leaf.is_(True))  # в закупках указывают коды нижнего уровня
             .order_by(dist)
             .limit(k * OVERFETCH)
         ).all()

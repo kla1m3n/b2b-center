@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app import state
-from app.api import health
+from app.api import classify, health, jobs, npa
 from app.db import SessionLocal, init_db
 from app.npa.service import get_active_version
 
@@ -40,3 +40,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 app.include_router(health.router, prefix="/api")
+app.include_router(classify.router, prefix="/api")
+app.include_router(jobs.router, prefix="/api")
+app.include_router(npa.router, prefix="/api")

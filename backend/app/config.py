@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://app:app@localhost:5432/pp1875"
     redis_url: str = "redis://localhost:6379/0"
     data_dir: str = "/data"
+    upload_dir: str = "/uploads"  # загруженные редакции ПП (общий том api и worker)
 
     embed_model: str = "intfloat/multilingual-e5-large"
     embed_dim: int = 1024

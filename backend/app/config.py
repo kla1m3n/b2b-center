@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     device: str = "cpu"
     retrieve_k: int = 20
     # Уверенность = вероятность верного вердикта по ПП (w_score, w_margin, bias); подбор: scripts/eval.py --fit-confidence
-    confidence_coef: tuple[float, float, float] = (31.593, 1.083, -26.1)
+    confidence_coef: tuple[float, float, float] = (11.055, 58.809, -8.864)
 
     llm_api_key: str = ""
     llm_base_url: str = "https://api.openai.com/v1"

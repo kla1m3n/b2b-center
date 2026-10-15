@@ -1,20 +1,21 @@
 """Идемпотентная первичная загрузка: ОКПД2, тексты для поиска с эмбеддингами, базовая редакция ПП.
 
-Запуск: python -m app.seed
+Запуск: python -m app.seed [--reindex]
 """
 import csv
 import logging
 import re
+import sys
 from collections.abc import Sequence
 from pathlib import Path
 
 import numpy as np
-from sqlalchemy import func, insert, select, text
+from sqlalchemy import delete, func, insert, select, text
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.db import SessionLocal, engine, init_db
-from app.models import Okpd2Code, Okpd2Text
+from app.models import ClassificationCache, Okpd2Code, Okpd2Text
 from app.npa.service import create_version, get_active_version, process_version
 
 log = logging.getLogger("seed")
@@ -87,10 +88,15 @@ def _load_npa(session: Session, data: Path) -> None:
     log.info("ПП 1875: версия %s, статус %s", v.title, v.status)
 
 
-def run(session: Session) -> None:
+def run(session: Session, reindex: bool = False) -> None:
+    """reindex=True — заново загрузить тексты поиска (после правки синонимов или смены индекса) и сбросить кэш."""
     data = Path(get_settings().data_dir)
     session.execute(text("SELECT pg_advisory_lock(:k)"), {"k": SEED_LOCK})
     try:
+        if reindex:
+            session.execute(delete(Okpd2Text))
+            session.execute(delete(ClassificationCache))
+            session.commit()
         if not session.scalar(select(func.count()).select_from(Okpd2Code)):
             _load_okpd2(session, data)
         if not session.scalar(select(func.count()).select_from(Okpd2Text)):
@@ -106,5 +112,5 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s: %(message)s")
     init_db()
     with SessionLocal() as s:
-        run(s)
+        run(s, reindex="--reindex" in sys.argv)
     engine.dispose()

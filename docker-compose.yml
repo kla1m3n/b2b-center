@@ -19,8 +19,9 @@ services:
   api:
     build: &backend-build
       context: ./backend
-      additional_contexts:
+      additional_contexts:  # локальные кэши для быстрой сборки; пустые папки — всё качается из интернета
         hfseed: ./.hf
+        pipseed: ./wheels/cpu
     image: pp1875-backend
     restart: unless-stopped
     env_file:

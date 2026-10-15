@@ -27,7 +27,10 @@ def code_ok(pred: str | None, expected: str) -> bool:
     return bool(pred) and digits(pred).startswith(digits(expected))
 
 
-def fit_confidence(pipe: Pipeline, rows: list[dict]) -> None:
+def fit_confidence(pipe: Pipeline, rows: list[dict], results: list) -> None:
+    """Уверенность калибруется на правильность ВЕРДИКТА по ПП (то, что важно тендерному специалисту),
+    а не на точное совпадение кода до последней цифры: в реальных закупках заказчики часто ставят
+    соседние коды, и калибровка по точному коду делала модель неоправданно неуверенной."""
     from app.classifier.confidence import fit_calibration
     from app.classifier.normalize import normalize
     from app.classifier.retriever import retrieve
@@ -35,7 +38,7 @@ def fit_confidence(pipe: Pipeline, rows: list[dict]) -> None:
     with SessionLocal() as s:
         cands = retrieve(s, pipe.embedder.encode_queries([normalize(r["name"]) for r in rows]), 2)
     feats = [(c[0].score, c[1].score) for c in cands]
-    labels = [int(code_ok(c[0].code, r["okpd2_expected"])) for c, r in zip(cands, rows)]
+    labels = [int(res.verdict.value == r["regime_expected"]) for res, r in zip(results, rows)]
     coef = fit_calibration(feats, labels)
     print(f"CONFIDENCE_COEF={list(round(x, 3) for x in coef)}  (вставить в app/config.py: confidence_coef)")
     pipe.s.confidence_coef = coef  # дальнейшие метрики этого прогона — с новой калибровкой
@@ -65,7 +68,7 @@ def main() -> None:
     elapsed = time.perf_counter() - t0
 
     if a.fit_confidence:
-        fit_confidence(pipe, rows)
+        fit_confidence(pipe, rows, results)
 
     n = len(rows)
     top1 = top3 = verd = items = 0
@@ -79,7 +82,7 @@ def main() -> None:
         it = got_items == set(r["appendix_item_expected"].split())
         top1, top3, verd, items = top1 + c1, top3 + c3, verd + v, items + it
         b = min(int(res.confidence * 5), 4)
-        bins.setdefault(b, []).append(c1)
+        bins.setdefault(b, []).append((c1, v))
         if not (c1 and v):
             errors.append((r["name"], r["okpd2_expected"], pred or "—", res.okpd2.title if res.okpd2 else "",
                            r["regime_expected"], res.verdict.value, res.confidence))
@@ -101,12 +104,13 @@ def main() -> None:
         "",
         "## Калибровка уверенности",
         "",
-        "| Уверенность | Товаров | Точность кода |",
-        "|---|---|---|",
+        "| Уверенность | Товаров | Точность кода | Точность вердикта |",
+        "|---|---|---|---|",
     ]
     for b in sorted(bins):
         ok = bins[b]
-        lines.append(f"| {b * 20}–{b * 20 + 20}% | {len(ok)} | {sum(ok) / len(ok):.0%} |")
+        lines.append(f"| {b * 20}–{b * 20 + 20}% | {len(ok)} | {sum(c for c, _ in ok) / len(ok):.0%} "
+                     f"| {sum(v for _, v in ok) / len(ok):.0%} |")
     lines += ["", "## Ошибки", "", "| Товар | Эталон | Предсказано | Наименование | Вердикт эталон | Вердикт | Увер. |",
               "|---|---|---|---|---|---|---|"]
     lines += [f"| {e[0]} | {e[1]} | {e[2]} | {e[3][:60]} | {e[4]} | {e[5]} | {e[6]:.0%} |" for e in errors]

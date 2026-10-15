@@ -2,7 +2,7 @@
 # GPU-вариант для разработки и демо: тот же образ, но torch с CUDA (модели не перекачиваются).
 # Колёса torch заранее скачиваются в ./wheels (см. README), сборка из корня репозитория:
 #   docker build -f backend/Dockerfile.gpu -t b2b-center-api-gpu .
-ARG BASE_IMAGE=b2b-center-api
+ARG BASE_IMAGE=pp1875-backend
 FROM ${BASE_IMAGE}
 RUN --mount=type=bind,source=wheels,target=/wheels \
     pip install --no-index --find-links /wheels "torch==2.5.1+cu121"

@@ -1,19 +1,19 @@
-"""Конвейер классификации: нормализация → поиск → переранжирование → сверка с ПП → результат."""
-import math
+"""Конвейер классификации: нормализация → поиск по смыслу → сверка с ПП → результат.
+
+Кросс-энкодер (реранкер) убран: на реальных закупках он ухудшал точность и был в 10 раз медленнее (reports/models.md).
+"""
 import re
 import threading
 from collections.abc import Callable
 
-import numpy as np
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
-from app.classifier.confidence import to_confidence
+from app.classifier.confidence import calibrated
 from app.classifier.embedder import Embedder
-from app.classifier.matcher import match, verdict
+from app.classifier.matcher import match, rank_by_overlap, verdict
 from app.classifier.normalize import normalize
-from app.classifier.reranker import Reranker
 from app.classifier.retriever import Candidate, retrieve
 from app.config import Settings
 from app.models import ClassificationCache, NpaVersion
@@ -24,52 +24,36 @@ EMPTY_ERROR = "Пустое или нераспознанное наименов
 _has_word = re.compile(r"[a-zа-я]{2,}")
 
 
-def _sigmoid(x: float) -> float:
-    return 1 / (1 + math.exp(-x))
-
-
 class Pipeline:
     def __init__(self, settings: Settings, session_factory: Callable[[], Session],
-                 embedder: Embedder | None = None, reranker: Reranker | None = None, llm=None):
+                 embedder: Embedder | None = None, llm=None):
         self.s = settings
         self.session_factory = session_factory
         self.embedder = embedder
-        self.reranker = reranker
         self.llm = llm
-        self._item_vecs: dict[int, tuple[list, np.ndarray]] = {}
+        self._items: dict[int, list] = {}
         self._lock = threading.Lock()
 
     def warmup(self) -> None:
         if self.embedder is None:
             self.embedder = Embedder(self.s.embed_model, self.s.device)
-        if self.reranker is None:
-            self.reranker = Reranker(self.s.rerank_model, self.s.device)
         self.embedder.encode_queries(["прогрев"])
-        self.reranker.score([("прогрев", "прогрев")])
+        with self.session_factory() as session:  # позиции активной редакции ПП — в память при старте
+            version = get_active_version(session)
+            if version:
+                self._version_items(session, version.id)
 
-    # --- позиции ПП активной версии с эмбеддингами наименований (для порядка внутри приложения)
-    def _version_items(self, session: Session, version_id: int) -> tuple[list, np.ndarray]:
+    def _version_items(self, session: Session, version_id: int) -> list:
         with self._lock:
-            if version_id not in self._item_vecs:
-                items = get_items(session, version_id)
-                vecs = self.embedder.encode_passages([i.title for i in items]) if items else np.zeros((0, 1))
-                self._item_vecs = {version_id: (items, vecs)}  # держим только одну версию
-            return self._item_vecs[version_id]
+            if version_id not in self._items:
+                self._items = {version_id: get_items(session, version_id)}  # держим только одну версию
+            return self._items[version_id]
 
-    def _npa_matches(self, code: str, query_vec: np.ndarray, items: list, vecs: np.ndarray,
-                     source_url: str) -> list[NpaMatch]:
-        found = match(code, items, source_url)
-        if len(found) < 2:
-            return found
-        sim = {it.id: float(vecs[i] @ query_vec) for i, it in enumerate(items)}
-        # порядок режимов (запрет → ограничение → преимущество) сохраняется, внутри — по близости наименования
-        return sorted(found, key=lambda m: (m.appendix, -sim.get(m.item_id, 0.0)))
-
-    def _result(self, name: str, cands: list[Candidate], raw: list[float], matches: list[NpaMatch]) -> dict:
-        order = sorted(range(len(cands)), key=lambda i: -raw[i])
-        probs = to_confidence([raw[i] for i in order], self.s.confidence_temperature)
-        best = cands[order[0]]
-        conf = probs[0] * _sigmoid(raw[order[0]])
+    def _result(self, name: str, cands: list[Candidate], matches: list[NpaMatch]) -> dict:
+        coef = self.s.confidence_coef
+        best = cands[0]
+        second = cands[1].score if len(cands) > 1 else 0.0
+        conf = calibrated(best.score, second, coef)
         v = verdict(matches)
         expl = f"Наиболее близкое наименование ОКПД2: «{best.title}»"
         if best.matched_text != best.title:
@@ -78,9 +62,8 @@ class Pipeline:
         return ClassificationResult(
             input=name,
             okpd2=Okpd2Ref(code=best.code, title=best.title),
-            alternatives=[Alternative(code=cands[i].code, title=cands[i].title,
-                                      confidence=round(p * _sigmoid(raw[i]), 4))
-                          for i, p in zip(order[1:4], probs[1:4])],
+            alternatives=[Alternative(code=c.code, title=c.title,
+                                      confidence=round(calibrated(c.score, best.score, coef), 4)) for c in cands[1:4]],
             confidence=round(conf, 4),
             needs_review=conf < self.s.needs_review_threshold,
             npa_matches=matches,
@@ -116,26 +99,14 @@ class Pipeline:
     def _classify_unique(self, session: Session, norms: list[str], version: NpaVersion | None) -> dict[str, dict]:
         qvecs = self.embedder.encode_queries(norms)
         cand_lists = retrieve(session, qvecs, self.s.retrieve_k)
-        items, ivecs = self._version_items(session, version.id) if version else ([], np.zeros((0, 1)))
+        items = self._version_items(session, version.id) if version else []
         source_url = version.source_url if version else ""
-
-        pairs, spans = [], []
-        for norm, cands in zip(norms, cand_lists):
-            top = cands[: self.s.rerank_k]
-            start = len(pairs)
-            pairs += [(norm, c.title if c.matched_text == c.title else f"{c.matched_text}. {c.title}") for c in top]
-            spans.append((start, len(pairs)))
-        raw_all = self.reranker.score(pairs)
-
         out = {}
-        for norm, qv, cands, (a, b) in zip(norms, qvecs, cand_lists, spans):
-            top = cands[: self.s.rerank_k]
-            if not top:
+        for norm, cands in zip(norms, cand_lists):
+            if not cands:
                 continue
-            raw = raw_all[a:b]
-            best = top[int(np.argmax(raw))]
-            matches = self._npa_matches(best.code, qv, items, ivecs, source_url)
-            out[norm] = self._result(norm, top, raw, matches)
+            matches = rank_by_overlap(norm, match(cands[0].code, items, source_url))
+            out[norm] = self._result(norm, cands, matches)
         return out
 
 

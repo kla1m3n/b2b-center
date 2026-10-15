@@ -27,11 +27,27 @@ def code_ok(pred: str | None, expected: str) -> bool:
     return bool(pred) and digits(pred).startswith(digits(expected))
 
 
+def fit_confidence(pipe: Pipeline, rows: list[dict]) -> None:
+    from app.classifier.confidence import fit_calibration
+    from app.classifier.normalize import normalize
+    from app.classifier.retriever import retrieve
+
+    with SessionLocal() as s:
+        cands = retrieve(s, pipe.embedder.encode_queries([normalize(r["name"]) for r in rows]), 2)
+    feats = [(c[0].score, c[1].score) for c in cands]
+    labels = [int(code_ok(c[0].code, r["okpd2_expected"])) for c, r in zip(cands, rows)]
+    coef = fit_calibration(feats, labels)
+    print(f"CONFIDENCE_COEF={list(round(x, 3) for x in coef)}  (вставить в app/config.py: confidence_coef)")
+    pipe.s.confidence_coef = coef  # дальнейшие метрики этого прогона — с новой калибровкой
+
+
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--testset", type=Path, default=Path(get_settings().data_dir) / "eval" / "testset.csv")
     p.add_argument("--out", type=Path, default=Path("/reports/eval.md"))
     p.add_argument("--limit", type=int, default=0)
+    p.add_argument("--fit-confidence", action="store_true",
+                   help="подобрать коэффициенты уверенности на этом наборе (только dev!)")
     a = p.parse_args()
 
     with a.testset.open(encoding="utf-8") as f:
@@ -47,6 +63,9 @@ def main() -> None:
     t0 = time.perf_counter()
     results = pipe.classify_many([r["name"] for r in rows])
     elapsed = time.perf_counter() - t0
+
+    if a.fit_confidence:
+        fit_confidence(pipe, rows)
 
     n = len(rows)
     top1 = top3 = verd = items = 0
@@ -69,8 +88,8 @@ def main() -> None:
     lines = [
         "# Оценка точности",
         "",
-        f"Набор: `{a.testset.name}`, товаров: {n}. Модели: `{s.embed_model}` + `{s.rerank_model}`, "
-        f"retrieve_k={s.retrieve_k}, rerank_k={s.rerank_k}, устройство: {s.device}.",
+        f"Набор: `{a.testset.name}`, товаров: {n}. Модель: `{s.embed_model}`, "
+        f"retrieve_k={s.retrieve_k}, уверенность {tuple(round(x, 2) for x in s.confidence_coef)}, устройство: {s.device}.",
         "",
         "| Метрика | Значение |",
         "|---|---|",

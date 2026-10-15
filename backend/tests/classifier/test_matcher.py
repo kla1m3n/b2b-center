@@ -47,3 +47,15 @@ def test_not_covered_is_none():
 def test_item_numbers_sorted_naturally():
     items = [item(["32.50"], 2, item_no="10"), item(["32.50"], 2, item_no="9"), item(["32.50"], 2, item_no="9_1")]
     assert [m.item_no for m in match("32.50.50.190", items)] == ["9", "9_1", "10"]
+
+
+def test_rank_by_overlap_orders_positions_within_appendix_by_shared_words():
+    from app.classifier.matcher import rank_by_overlap
+
+    items = [
+        item(["32.50.50"], 2, item_no="350", title="Изделия для стомы"),
+        item(["32.50.50"], 2, item_no="377", title="Контейнеры для биопроб полимерные"),
+        item(["32.50"], 3, item_no="80", title="Изделия медицинские"),
+    ]
+    ranked = rank_by_overlap("контейнер для биопроб", match("32.50.50.190", items))
+    assert [(m.appendix, m.item_no) for m in ranked] == [(2, "377"), (2, "350"), (3, "80")]

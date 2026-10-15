@@ -22,7 +22,7 @@ def main() -> None:
     p.add_argument("--out", type=Path, default=None)
     a = p.parse_args()
     with (a.data / "okpd2.csv").open(encoding="utf-8") as f:
-        codes = [Okpd2Code(code=r["code"], title=r["title"], parent_code=r["parent_code"] or None)
+        codes = [Okpd2Code(code=r["code"], title=r["title"], parent_code=r["parent_code"] or None, is_leaf=r["is_leaf"] == "1")
                  for r in csv.DictReader(f, delimiter=";")]
     texts = okpd2_texts(codes, read_synonyms(a.data / "okpd2_synonyms.csv"))
     vecs = Embedder(a.model, s.device).encode_passages([t[1] for t in texts])

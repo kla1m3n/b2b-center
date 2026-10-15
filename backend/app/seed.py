@@ -19,7 +19,6 @@ from app.npa.service import create_version, get_active_version, process_version
 
 log = logging.getLogger("seed")
 SEED_LOCK = 1875
-_vague_re = re.compile(r"прочи|не включенн|аналогичн", re.IGNORECASE)
 
 
 def model_slug(model_name: str) -> str:
@@ -27,16 +26,13 @@ def model_slug(model_name: str) -> str:
 
 
 def okpd2_texts(codes: Sequence[Okpd2Code], synonyms: Sequence[tuple[str, str]]) -> list[tuple[str, str, str]]:
-    """Тексты для поиска: (code, text, kind). Расплывчатые наименования дополняются наименованием родителя."""
-    titles = {c.code: c.title for c in codes}
-    out = []
-    for c in codes:
-        t = c.title
-        parent = titles.get(c.parent_code or "")
-        if parent and parent != t and (_vague_re.search(t) or len(t.split()) <= 2):
-            t = f"{t} ({parent})"
-        out.append((c.code, t, "official"))
-    out += [(code, s, "synonym") for code, s in synonyms if code in titles]
+    """Тексты для поиска: (code, text, kind) — официальные наименования кодов нижнего уровня и синонимы к ним.
+
+    Дописывание наименований родительских групп ухудшало поиск (reports/models.md), поэтому только чистые названия.
+    """
+    leaf = {c.code for c in codes if c.is_leaf}
+    out = [(c.code, c.title, "official") for c in codes if c.code in leaf]
+    out += [(code, s, "synonym") for code, s in synonyms if code in leaf]
     return out
 
 

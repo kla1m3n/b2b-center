@@ -74,7 +74,7 @@ def main() -> None:
     text = "\n".join([
         "# Замер скорости", "",
         f"Режим: {'конвейер напрямую' if a.inprocess else 'HTTP API'}, устройство: **{s.device}**, "
-        f"модели: `{s.embed_model}` + `{s.rerank_model}`, rerank_k={s.rerank_k}.", "",
+        f"модель: `{s.embed_model}`.", "",
         "| Сценарий | Результат | Критерий | |", "|---|---|---|---|",
         f"| 1 товар, p50 | {p50:.2f} с | < 5 с | {'✅' if p50 < 5 else '❌'} |",
         f"| 1 товар, p95 | {p95:.2f} с | < 5 с | {'✅' if p95 < 5 else '❌'} |",

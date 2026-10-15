@@ -17,7 +17,12 @@ services:
     image: redis:7-alpine
 
   api:
-    build: ./backend
+    build: &backend-build
+      context: ./backend
+      additional_contexts:
+        hfseed: ./.hf
+    image: pp1875-backend
+    restart: unless-stopped
     env_file:
       - path: .env
         required: false
@@ -36,7 +41,9 @@ services:
         condition: service_started
 
   worker:
-    build: ./backend
+    build: *backend-build
+    image: pp1875-backend
+    restart: unless-stopped
     env_file:
       - path: .env
         required: false

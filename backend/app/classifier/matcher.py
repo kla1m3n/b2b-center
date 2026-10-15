@@ -57,3 +57,17 @@ def match(code: str, items: Sequence[NpaItemLike], source_url: str = "") -> list
 
 def verdict(matches: list[NpaMatch]) -> Regime:
     return min((m.regime for m in matches), key=REGIME_ORDER.__getitem__, default=Regime.none)
+
+
+def _stems(text: str) -> set[str]:
+    """Грубые основы слов: первые 5 букв слов длиннее 3 символов («контейнеры» ~ «контейнер»)."""
+    return {w[:5] for w in re.findall(r"[a-zа-яё]+", text.lower()) if len(w) > 3}
+
+
+def rank_by_overlap(query: str, matches: list[NpaMatch]) -> list[NpaMatch]:
+    """Внутри одного приложения выше позиции, чьё наименование ближе к товару по общим словам.
+
+    Порядок приложений (запрет → ограничение → преимущество) сохраняется.
+    """
+    q = _stems(query)
+    return sorted(matches, key=lambda m: (REGIME_ORDER[m.regime], m.appendix, -len(q & _stems(m.title))))

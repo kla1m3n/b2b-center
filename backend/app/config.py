@@ -8,13 +8,12 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     data_dir: str = "/data"
 
-    embed_model: str = "intfloat/multilingual-e5-base"
-    embed_dim: int = 768
-    rerank_model: str = "BAAI/bge-reranker-v2-m3"
+    embed_model: str = "intfloat/multilingual-e5-large"
+    embed_dim: int = 1024
     device: str = "cpu"
     retrieve_k: int = 20
-    rerank_k: int = 10
-    confidence_temperature: float = 1.0
+    # Калибровка уверенности (w_score, w_margin, bias) — подбирается: python scripts/eval.py --fit-confidence
+    confidence_coef: tuple[float, float, float] = (74.672, 3.317, -65.484)
 
     llm_api_key: str = ""
     llm_base_url: str = "https://api.openai.com/v1"

@@ -64,3 +64,16 @@ def test_pipeline_uses_cache(pipeline, npa_ready):
     assert npa_ready.query(ClassificationCache).count() == 1
     pipeline.classify_many(["Бумага А4"])
     assert npa_ready.query(ClassificationCache).count() == 1
+
+
+@pytest.mark.models
+def test_best_code_is_top_retrieval_candidate_with_calibrated_confidence(pipeline, embedder, npa_ready):
+    from app.classifier.confidence import calibrated
+    from app.classifier.retriever import retrieve
+    from app.config import get_settings
+
+    cands = retrieve(npa_ready, embedder.encode_queries(["монитор samsung"]), k=20)[0]
+    r = pipeline.classify_many(["Монитор Samsung"])[0]
+    assert r.okpd2.code == cands[0].code
+    expected = calibrated(cands[0].score, cands[1].score, get_settings().confidence_coef)
+    assert abs(r.confidence - round(expected, 4)) < 1e-3

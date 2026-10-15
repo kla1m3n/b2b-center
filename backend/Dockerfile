@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 FROM python:3.11-slim
 
 ARG TORCH_INDEX=https://download.pytorch.org/whl/cpu
@@ -15,10 +16,10 @@ COPY pyproject.toml ./
 RUN mkdir app && touch app/__init__.py && pip install ".[dev]" && pip uninstall -y pp1875-classifier && rm -rf app
 ENV PYTHONPATH=/app
 
-ARG EMBED_MODEL=intfloat/multilingual-e5-base
-ARG RERANK_MODEL=BAAI/bge-reranker-v2-m3
+ARG EMBED_MODEL=intfloat/multilingual-e5-large
 COPY scripts/download_models.py scripts/
-RUN python scripts/download_models.py ${EMBED_MODEL} ${RERANK_MODEL}
+# /seed — локальный кэш моделей (.hf в корне репозитория); если пуст, модель скачивается из интернета
+RUN --mount=type=bind,from=hfseed,target=/seed python scripts/download_models.py ${EMBED_MODEL}
 ENV HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
 
 COPY . .

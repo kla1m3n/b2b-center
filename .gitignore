@@ -8,4 +8,7 @@ dist/
 .scratch/
 .hf/*
 !.hf/.gitkeep
-wheels/
+wheels/*
+!wheels/cpu/
+wheels/cpu/*
+!wheels/cpu/.gitkeep

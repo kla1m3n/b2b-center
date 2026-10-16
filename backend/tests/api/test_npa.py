@@ -69,3 +69,30 @@ def test_npa_item_text_for_reference_link(client, clean_npa, celery_eager, sessi
     assert r["appendix"] == 2 and r["item_no"] == "195" and "26.20.11" in r["codes"]
     assert r["regime"] == "restriction" and r["source_url"] == "https://example.org/pp1875"
     assert client.get("/api/npa/items/999999").status_code == 404
+
+
+@pytest.fixture
+def admin_token(monkeypatch):
+    monkeypatch.setenv("ADMIN_TOKEN", "секрет-1875")
+    from app.config import get_settings
+
+    get_settings.cache_clear()
+    yield "секрет-1875"
+    get_settings.cache_clear()
+
+
+def test_upload_requires_admin_token_when_set(client, clean_npa, admin_token, celery_eager):
+    sample = (FIXTURES / "npa_sample.json").read_bytes()
+    assert upload(client, "pp.json", sample).status_code == 403
+    wrong = client.post("/api/npa/upload", files={"file": ("pp.json", sample, "application/json")},
+                        data={"title": "x"}, headers={"X-Admin-Token": "не тот"})
+    assert wrong.status_code == 403 and "пароль" in wrong.json()["detail"]
+    assert client.get("/api/npa/versions").json() == []  # отклонённая загрузка не создаёт редакцию
+    ok = client.post("/api/npa/upload", files={"file": ("pp.json", sample, "application/json")},
+                     data={"title": "x"}, headers={"X-Admin-Token": admin_token})
+    assert ok.status_code == 202
+    assert client.get("/api/health").json()["npa_upload_protected"] is True
+
+
+def test_upload_open_without_admin_token(client, clean_npa):
+    assert client.get("/api/health").json()["npa_upload_protected"] is False

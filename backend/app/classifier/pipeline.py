@@ -91,7 +91,12 @@ class Pipeline:
         out = []
         for name, norm in zip(names, norms):
             if norm in by_norm:
-                out.append(ClassificationResult.model_validate({**by_norm[norm], "input": name}))
+                cached_res = by_norm[norm]
+                # Пометку пересчитываем: кэш живёт дольше настройки порога (NEEDS_REVIEW_THRESHOLD)
+                out.append(ClassificationResult.model_validate({
+                    **cached_res, "input": name,
+                    "needs_review": cached_res["confidence"] < self.s.needs_review_threshold,
+                }))
             else:
                 out.append(ClassificationResult(input=name, error=EMPTY_ERROR, needs_review=True, verdict=Regime.none))
         return out

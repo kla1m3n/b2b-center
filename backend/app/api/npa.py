@@ -1,9 +1,10 @@
 """База НПА: редакции ПП № 1875 и их позиции. Новая редакция загружается без передеплоя."""
+import secrets
 from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, Header, HTTPException, UploadFile
 from pydantic import BaseModel
 from sqlalchemy import func, select
 
@@ -62,7 +63,12 @@ def versions() -> list[VersionOut]:
 
 @router.post("/upload", response_model=UploadOut, status_code=202,
              summary="Загрузить новую редакцию ПП 1875 (.json или .xlsx) — без перезапуска сервиса")
-async def upload(file: UploadFile = File(...), title: str = Form(""), source_url: str = Form("")) -> UploadOut:
+async def upload(file: UploadFile = File(...), title: str = Form(""), source_url: str = Form(""),
+                 x_admin_token: str | None = Header(None, description="Пароль администратора, если задан ADMIN_TOKEN")
+                 ) -> UploadOut:
+    expected = get_settings().admin_token
+    if expected and not secrets.compare_digest((x_admin_token or "").encode(), expected.encode()):
+        raise HTTPException(403, "Неверный пароль администратора")
     suffix = Path(file.filename or "").suffix.lower()
     if suffix not in ALLOWED:
         raise HTTPException(422, "Поддерживаются файлы .json и .xlsx (формат описан в README)")

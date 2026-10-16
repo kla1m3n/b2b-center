@@ -31,7 +31,7 @@ export function CheckPage() {
         setResults(job.results ?? []);
         return;
       }
-      if (job.status === "failed") throw new Error("Не удалось обработать список. Попробуйте ещё раз.");
+      if (job.status === "failed") throw new Error(job.error || "Не удалось обработать список. Попробуйте ещё раз.");
       await sleep(1000);
     }
   }

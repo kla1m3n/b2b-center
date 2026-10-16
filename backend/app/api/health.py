@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app import state
+from app.config import get_settings
 from app.db import SessionLocal, db_alive
 from app.npa.service import get_active_version
 from app.schemas import HealthOut
@@ -22,4 +23,5 @@ def health() -> HealthOut:
         db=db_ok,
         models=state.models_ready,
         npa_version=title,
+        npa_upload_protected=bool(get_settings().admin_token),
     )

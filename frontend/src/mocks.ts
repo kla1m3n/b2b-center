@@ -1,4 +1,4 @@
-// Заглушки API на время, пока backend не отдаёт /api/classify, /api/jobs, /api/npa.
+// Заглушки API для разработки без backend. Формат ответов — как у backend/app/api/*.py.
 // Позиции ПП и коды ОКПД2 взяты из data/npa/pp1875.json и data/okpd2.csv (ред. на 30.09.2026).
 import type {
   ClassificationResult,
@@ -160,7 +160,7 @@ export function classifySync(name: string): ClassificationResult {
 
 export async function getHealth(): Promise<HealthOut> {
   await delay(150);
-  return { status: "ok", db: true, models: true, npa_version: "ПП РФ № 1875 от 23.12.2024 (ред. на 30 сентября 2026 года)" };
+  return { status: "ok", db: true, models: true, npa_version: "ПП РФ № 1875 от 23.12.2024 (ред. на 30 сентября 2026 года)", npa_upload_protected: true };
 }
 
 export async function classify(name: string): Promise<ClassificationResult> {
@@ -211,9 +211,11 @@ export async function getJob(id: string): Promise<JobOut> {
   const done = Math.min(job.names.length, Math.floor((Date.now() - job.startedAt) / 150));
   const finished = done >= job.names.length;
   return {
+    job_id: id,
     status: finished ? "done" : done === 0 ? "queued" : "running",
     total: job.names.length,
     done,
+    error: null,
     results: finished ? job.names.map(classifySync) : null,
   };
 }
@@ -221,7 +223,8 @@ export async function getJob(id: string): Promise<JobOut> {
 // --- база НПА ---
 
 const versions: NpaVersion[] = [
-  { id: 1, title: "ПП РФ № 1875 от 23.12.2024 (ред. на 30 сентября 2026 года)", uploaded_at: "2026-10-14T09:00:00Z", status: "ready", is_active: true, items_count: 902, error: null },
+  { id: 1, title: "ПП РФ № 1875 от 23.12.2024 (ред. на 30 сентября 2026 года)", source_url: SOURCE_URL, uploaded_at: "2026-10-14T09:00:00Z", status: "ready", is_active: true, items_count: 902, error: null,
+    warnings: ["Код 26.80.13.000 отсутствует в справочнике ОКПД2", "Код 25.99.26.000 отсутствует в справочнике ОКПД2"] },
 ];
 
 export async function getNpaVersions(): Promise<NpaVersion[]> {
@@ -237,18 +240,22 @@ export async function getNpaVersions(): Promise<NpaVersion[]> {
   return [...versions].sort((a, b) => b.id - a.id);
 }
 
-export async function uploadNpa(file: File, title: string): Promise<{ version_id: number }> {
+// В демо пароль администратора — «1875»
+export async function uploadNpa(file: File, title: string, sourceUrl: string, adminToken: string): Promise<{ version_id: number }> {
   await delay(400);
+  if (adminToken !== "1875") throw new Error("Неверный пароль администратора");
+  if (!/\.(json|xlsx)$/i.test(file.name)) throw new Error("Поддерживаются файлы .json и .xlsx (формат описан в README)");
   const id = Math.max(...versions.map((v) => v.id)) + 1;
-  const broken = !/\.(json|xlsx|docx)$/i.test(file.name);
   versions.push({
     id,
     title: title || file.name,
+    source_url: sourceUrl,
     uploaded_at: new Date().toISOString(),
-    status: broken ? "failed" : "parsing",
+    status: "parsing",
     is_active: false,
     items_count: 0,
-    error: broken ? "Неподдерживаемый формат файла: нужен JSON, XLSX или DOCX" : null,
+    error: null,
+    warnings: [],
   });
   return { version_id: id };
 }
@@ -257,16 +264,17 @@ export async function getNpaItem(id: number): Promise<NpaItemDetails> {
   await delay(150);
   const it = ITEMS.find((i) => i.id === id);
   if (!it) throw new Error("Позиция не найдена");
-  const appendixName = { 1: "Перечень товаров, в отношении которых устанавливается запрет", 2: "Перечень товаров, в отношении которых устанавливается ограничение", 3: "Минимальная обязательная доля закупок российских товаров" }[it.appendix];
   return {
     id: it.id,
+    version_id: 1,
     appendix: it.appendix,
     item_no: it.item_no,
     title: it.title,
     codes: it.codes,
+    regime: REGIME_BY_APPENDIX[it.appendix],
     quota: it.quota,
     note: it.note ?? "",
-    raw_text: `Приложение № ${it.appendix} (${appendixName}), пункт ${it.item_no}.\n${it.title}\nКоды ОКПД2: ${it.codes.join(", ")}${it.quota ? `\nМинимальная доля: ${it.quota}%` : ""}`,
+    has_conditions: Boolean(it.has_conditions),
     source_url: SOURCE_URL,
   };
 }

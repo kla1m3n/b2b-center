@@ -50,7 +50,7 @@ export function getJob(id: string): Promise<JobOut> {
   return USE_MOCKS ? mocks.getJob(id) : request(`/jobs/${id}`);
 }
 
-/** Ссылка на Excel с результатами пакета (backend). В режиме заглушек недоступно. */
+/** Ссылка на Excel с результатами пакета (backend, только для status = "done"). В режиме заглушек недоступно. */
 export function jobExportUrl(id: string): string | null {
   return USE_MOCKS ? null : `/api/jobs/${id}/export.xlsx`;
 }
@@ -63,12 +63,13 @@ export function getNpaItem(id: number): Promise<NpaItemDetails> {
   return USE_MOCKS ? mocks.getNpaItem(id) : request(`/npa/items/${id}`);
 }
 
-export function uploadNpa(file: File, title: string, sourceUrl: string, adminToken: string): Promise<{ version_id: number }> {
-  if (USE_MOCKS) return mocks.uploadNpa(file, title);
+export function uploadNpa(file: File, title: string, sourceUrl: string, adminToken = ""): Promise<{ version_id: number }> {
+  if (USE_MOCKS) return mocks.uploadNpa(file, title, sourceUrl, adminToken);
   const form = new FormData();
   form.append("file", file);
   form.append("title", title);
   form.append("source_url", sourceUrl);
-  // Заголовок для защиты загрузки на публичном сервере — согласовать с backend
-  return request("/npa/upload", { method: "POST", body: form, headers: { "X-Admin-Token": adminToken } });
+  // Пароль нужен, если на сервере задан ADMIN_TOKEN (тогда /api/health отдаёт npa_upload_protected: true)
+  const headers: Record<string, string> = adminToken ? { "X-Admin-Token": adminToken } : {};
+  return request("/npa/upload", { method: "POST", body: form, headers });
 }

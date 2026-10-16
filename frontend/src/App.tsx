@@ -96,7 +96,7 @@ export function App() {
             <Alert color="eis" mb="md" title="Система запускается">Загружаются модели, обычно это занимает около минуты.</Alert>
           )}
           <Tabs.Panel value="check"><CheckPage /></Tabs.Panel>
-          <Tabs.Panel value="npa"><NpaPage /></Tabs.Panel>
+          <Tabs.Panel value="npa"><NpaPage uploadProtected={health?.npa_upload_protected ?? false} /></Tabs.Panel>
         </Container>
       </Box>
     </Tabs>

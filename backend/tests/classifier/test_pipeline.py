@@ -77,3 +77,11 @@ def test_best_code_is_top_retrieval_candidate_with_calibrated_confidence(pipelin
     assert r.okpd2.code == cands[0].code
     expected = calibrated(cands[0].score, cands[1].score, get_settings().confidence_coef)
     assert abs(r.confidence - round(expected, 4)) < 1e-3
+
+
+@pytest.mark.models
+def test_needs_review_recomputed_for_cached_results(pipeline):
+    first = pipeline.classify_many(["Ноутбук HP ProBook 450 G9"])[0]
+    pipeline.s = pipeline.s.model_copy(update={"needs_review_threshold": 1.01})  # порог сменили после кэширования
+    again = pipeline.classify_many(["Ноутбук HP ProBook 450 G9"])[0]  # этот ответ — из кэша
+    assert again.confidence == first.confidence and again.needs_review

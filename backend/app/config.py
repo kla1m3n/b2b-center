@@ -8,6 +8,9 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     data_dir: str = "/data"
     upload_dir: str = "/uploads"  # загруженные редакции ПП (общий том api и worker)
+    # Пароль на загрузку новой редакции ПП (ADMIN_TOKEN в .env). Пусто — загрузка открыта (локальный запуск у жюри);
+    # на публичном сервере обязательно задать, иначе любой посетитель сайта может подменить базу.
+    admin_token: str = ""
 
     embed_model: str = "intfloat/multilingual-e5-large"
     embed_dim: int = 1024
@@ -20,7 +23,10 @@ class Settings(BaseSettings):
     llm_base_url: str = "https://api.openai.com/v1"
     llm_model: str = "gpt-4o-mini"
 
-    needs_review_threshold: float = 0.60
+    # «⚠ Проверьте вручную», если вероятность верного вердикта ниже порога. На dev (reports/eval_dev.md):
+    # уверенность 60–80% → вердикт верен в 69% случаев, 80–100% → в 92%. При старом пороге 0.60 пометка
+    # после перекалибровки не срабатывала ни разу (минимальная уверенность на dev — около 60%).
+    needs_review_threshold: float = 0.80
     batch_limit: int = 100
 
 

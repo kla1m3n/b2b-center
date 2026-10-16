@@ -60,6 +60,7 @@ class HealthOut(BaseModel):
     db: bool
     models: bool
     npa_version: str | None
+    npa_upload_protected: bool = False  # загрузка редакции ПП требует пароль администратора (фронт показывает поле)
 
 
 class JobCreated(BaseModel):

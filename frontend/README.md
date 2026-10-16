@@ -28,27 +28,28 @@ npm run build      # проверка типов + сборка в dist/
 
 ## Заглушки и контракт с backend
 
-Пока на backend есть только `/api/health`, все вызовы идут в `src/mocks.ts` (`VITE_USE_MOCKS=true` в `.env.development`).
-Заглушки отвечают по ключевым словам (ноутбук, бумага, щебень, халат, тумба, катетер, программа, лифт, хлеб) реальными позициями ПП из `data/npa/pp1875.json`; незнакомый товар даёт низкую уверенность. Пакет имитирует очередь (~150 мс на товар), новая редакция НПА «разбирается» 3 с.
+В `npm run dev` все вызовы идут в `src/mocks.ts` (`VITE_USE_MOCKS=true` в `.env.development`; в тестах — через `vite.config.ts`).
+Заглушки отвечают по ключевым словам (ноутбук, бумага, щебень, халат, тумба, катетер, программа, лифт, хлеб) реальными позициями ПП из `data/npa/pp1875.json` в том же формате, что backend; незнакомый товар даёт низкую уверенность.
 
-Типы в `src/types.ts` повторяют `backend/app/schemas.py`. Эндпоинты — по плану (задачи 8–9):
+Типы в `src/types.ts` повторяют `backend/app/schemas.py` и модели ответов в `backend/app/api/*.py`. Все эндпоинты уже есть в `main` (коммиты b726070, 14bedbe):
 
-| Вызов | Эндпоинт | Статус на backend |
-|---|---|---|
-| `getHealth` | `GET /api/health` | ✅ есть |
-| `classify` | `POST /api/classify {name}` → `ClassificationResult` | ⏳ задача 8 |
-| `classifyBatch` / `classifyFile` | `POST /api/classify/batch` (JSON `{names}` или multipart `file`) → `{job_id}` | ⏳ задача 8 |
-| `getJob` | `GET /api/jobs/{id}` → `{status, total, done, results}` | ⏳ задача 8 |
-| `jobExportUrl` | `GET /api/jobs/{id}/export.xlsx` | ⏳ задача 8 |
-| `getNpaVersions` | `GET /api/npa/versions` | ⏳ задача 9 |
-| `uploadNpa` | `POST /api/npa/upload` (multipart `file`, `title`, `source_url`) | ⏳ задача 9 |
-| `getNpaItem` | `GET /api/npa/items/{id}` → позиция с `raw_text` | ⏳ задача 9 |
+| Вызов | Эндпоинт |
+|---|---|
+| `getHealth` | `GET /api/health` |
+| `classify` | `POST /api/classify {name}` → `ClassificationResult` (503, пока модели грузятся) |
+| `classifyBatch` / `classifyFile` | `POST /api/classify/batch` (JSON `{names}` или multipart `file`: .xlsx/.csv/.txt) → 202 `{job_id}` |
+| `getJob` | `GET /api/jobs/{id}` → `{job_id, status, total, done, error, results}` |
+| `jobExportUrl` | `GET /api/jobs/{id}/export.xlsx` (только после `done`) |
+| `getNpaVersions` | `GET /api/npa/versions` → с `source_url` и `warnings` |
+| `uploadNpa` | `POST /api/npa/upload` (multipart `file` .json/.xlsx до 20 МБ, `title`, `source_url`) → 202 |
+| `getNpaItem` | `GET /api/npa/items/{id}` → поля пункта; текст в окне собирается из них (готового `raw_text` нет) |
 
-**Нужно согласовать с backend:**
-- Пароль на загрузку НПА: фронт шлёт заголовок `X-Admin-Token` (сайт будет публичным, загрузка меняет базу для всех).
-- Ответ об ошибке: фронт показывает `detail`, если это строка (так отдаёт FastAPI для `HTTPException`).
-- Пока нет `export.xlsx`, кнопка выгрузки сохраняет CSV на стороне браузера (`src/exportCsv.ts`, те же колонки).
+Ошибки: фронт показывает `detail` из ответа FastAPI.
+
+**Пароль на загрузку НПА:** если на сервере задан `ADMIN_TOKEN`, `/api/health` отдаёт `npa_upload_protected: true` — страница «База НПА» показывает поле пароля и шлёт его в заголовке `X-Admin-Token`. В заглушках пароль — `1875`.
+
+Одиночная проверка (`/api/classify`) не создаёт задачу, поэтому её выгрузка — CSV из браузера (`src/exportCsv.ts`, те же колонки, что в Excel backend).
 
 ## Что дальше
 - Проверить `docker compose up --build` на сервере: сайт на :8080, `/api/health` через nginx.
-- Подключить к реальному API, как только появятся эндпоинты задачи 8 (`npm run dev:api`).
+- Проверить с реальным backend: `npm run dev:api` (backend на :8000) или `docker compose up --build` → :8080.

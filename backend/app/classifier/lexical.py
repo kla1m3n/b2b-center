@@ -63,7 +63,7 @@ class LexicalIndex:
                 norm = tf + self.k1 * (1 - self.b + self.b * self.lens[i] / self.avg)
                 scores[i] += idf * tf * (self.k1 + 1) / norm
         best: dict[str, tuple[float, str]] = {}
-        for i, sc in sorted(scores.items(), key=lambda x: -x[1]):
+        for i, sc in sorted(scores.items(), key=lambda x: (-x[1], x[0])):  # при равенстве — порядок индекса
             code = self.codes[i]
             if code not in best:
                 best[code] = (sc, self.texts[i])

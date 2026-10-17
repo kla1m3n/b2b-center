@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     device: str = "cpu"
     retrieve_k: int = 20
     lexical_search: bool = True  # поиск по словам (BM25) вдобавок к поиску по смыслу, объединение по рангам
+    spell_correction: bool = True  # исправлять опечатки по словарю наименований ОКПД2 и синонимов (spell.py)
     lexical_weight: float = 0.5  # вес поиска по словам в объединении (поиск по смыслу — 1.0)
     # Уверенность = вероятность верного вердикта по ПП (w_score, w_margin, bias); подбор: scripts/eval.py --fit-confidence
     confidence_coef: tuple[float, float, float] = (11.055, 58.809, -8.864)

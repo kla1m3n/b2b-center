@@ -21,7 +21,7 @@ from pathlib import Path
 
 from sqlalchemy import select
 
-from app.classifier.matcher import match, verdict
+from app.classifier.matcher import code_covers, match, verdict
 from app.classifier.pipeline import Pipeline
 from app.config import get_settings
 from app.db import SessionLocal
@@ -29,12 +29,10 @@ from app.models import ClassificationCache, Okpd2Code
 from app.npa.service import get_active_version, get_items
 
 
-def digits(code: str) -> str:
-    return code.replace(".", "")
-
-
 def code_ok(pred: str | None, expected: str) -> bool:
-    return bool(pred) and digits(pred).startswith(digits(expected))
+    """Предсказанный код лежит внутри эталонного — то же правило иерархии, что и при сверке с ПП
+    (включая «категория XX.XX.XX.XX0 включает подкатегории XX.XX.XX.XXX»)."""
+    return bool(pred) and code_covers(expected, pred)
 
 
 def load_fixes(path: Path) -> dict[str, str]:
@@ -110,7 +108,7 @@ def main() -> None:
     exp = Expectations()
     n = len(rows)
     top1 = top3 = verd = items = verd_raw = fixed_n = 0
-    errors, bins = [], {}
+    errors, bins, by_variant = [], {}, {}
     for r, res in zip(rows, results):
         pred = res.okpd2.code if res.okpd2 else None
         verd_raw += res.verdict.value == r["regime_expected"]
@@ -125,6 +123,8 @@ def main() -> None:
         got_items = {f"{m.appendix}:{m.item_no}" for m in res.npa_matches}
         it = got_items == set(r["appendix_item_expected"].split())
         top1, top3, verd, items = top1 + c1, top3 + c3, verd + v, items + it
+        if r.get("variant"):  # стресс-набор: точность по типу искажения
+            by_variant.setdefault(r["variant"], []).append((c1, v))
         b = min(int(res.confidence * 5), 4)
         bins.setdefault(b, []).append((c1, v))
         if not (c1 and v):
@@ -157,6 +157,10 @@ def main() -> None:
         ok = bins[b]
         lines.append(f"| {b * 20}–{b * 20 + 20}% | {len(ok)} | {sum(c for c, _ in ok) / len(ok):.0%} "
                      f"| {sum(v for _, v in ok) / len(ok):.0%} |")
+    if by_variant:
+        lines += ["", "## По типам искажений", "", "| Вариант | Строк | Код top-1 | Вердикт |", "|---|---|---|---|"]
+        for kind, ok in by_variant.items():
+            lines.append(f"| {kind} | {len(ok)} | {sum(c for c, _ in ok) / len(ok):.0%} | {sum(v for _, v in ok) / len(ok):.0%} |")
     lines += ["", "## Ошибки", "", "| Товар | Эталон | Предсказано | Наименование | Вердикт эталон | Вердикт | Увер. |",
               "|---|---|---|---|---|---|---|"]
     lines += [f"| {e[0]} | {e[1]} | {e[2]} | {e[3][:60]} | {e[4]} | {e[5]} | {e[6]:.0%} |" for e in errors]

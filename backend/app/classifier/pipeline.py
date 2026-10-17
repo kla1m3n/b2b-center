@@ -17,6 +17,7 @@ from app.classifier.lexical import LexicalIndex, rrf
 from app.classifier.matcher import match, rank_by_overlap, verdict
 from app.classifier.normalize import normalize
 from app.classifier.rerank import prefer_goods, prefer_medical
+from app.classifier.spell import Speller
 from app.classifier.retriever import Candidate, retrieve
 from app.config import Settings
 from app.models import ClassificationCache, NpaVersion, Okpd2Code, Okpd2Text
@@ -36,6 +37,7 @@ class Pipeline:
         self.llm = llm
         self._items: dict[int, list] = {}
         self._lex: LexicalIndex | None = None
+        self._speller: Speller | None = None
         self._lock = threading.Lock()
 
     def warmup(self) -> None:
@@ -46,7 +48,7 @@ class Pipeline:
             version = get_active_version(session)
             if version:
                 self._version_items(session, version.id)
-            if self.s.lexical_search:
+            if self.s.lexical_search or self.s.spell_correction:
                 self._lexical(session)
 
     def _lexical(self, session: Session) -> LexicalIndex:
@@ -56,8 +58,10 @@ class Pipeline:
                 rows = session.execute(
                     select(Okpd2Text.code, Okpd2Text.text).join(Okpd2Code, Okpd2Code.code == Okpd2Text.code)
                     .where(Okpd2Code.is_leaf.is_(True))
+                    .order_by(Okpd2Text.code, Okpd2Text.id)  # при равных очках BM25 порядок не должен зависеть от БД
                 ).all()
                 self._lex = LexicalIndex(rows)
+                self._speller = Speller(text for _, text in rows)  # словарь — те же наименования и синонимы
             return self._lex
 
     def _fuse(self, session: Session, norm: str, qvec: np.ndarray, vec_cands: list[Candidate]) -> list[Candidate]:
@@ -143,11 +147,16 @@ class Pipeline:
         return out
 
     def _classify_unique(self, session: Session, norms: list[str], version: NpaVersion | None) -> dict[str, dict]:
-        qvecs = self.embedder.encode_queries(norms)
+        if self.s.spell_correction:  # исправленный текст идёт в поиск; ключ кэша — исходное нормализованное наименование
+            self._lexical(session)
+            queries = [self._speller.correct(n) for n in norms]
+        else:
+            queries = norms
+        qvecs = self.embedder.encode_queries(queries)
         cand_lists = retrieve(session, qvecs, self.s.retrieve_k)
         if self.s.lexical_search:
-            cand_lists = [self._fuse(session, n, qv, c) for n, qv, c in zip(norms, qvecs, cand_lists)]
-        cand_lists = [prefer_medical(n, prefer_goods(n, c)) for n, c in zip(norms, cand_lists)]
+            cand_lists = [self._fuse(session, q, qv, c) for q, qv, c in zip(queries, qvecs, cand_lists)]
+        cand_lists = [prefer_medical(q, prefer_goods(q, c)) for q, c in zip(queries, cand_lists)]
         items = self._version_items(session, version.id) if version else []
         source_url = version.source_url if version else ""
         out = {}

@@ -59,3 +59,14 @@ def test_rank_by_overlap_orders_positions_within_appendix_by_shared_words():
     ]
     ranked = rank_by_overlap("контейнер для биопроб", match("32.50.50.190", items))
     assert [(m.appendix, m.item_no) for m in ranked] == [(2, "377"), (2, "350"), (3, "80")]
+
+
+
+def test_category_covers_its_subcategories():
+    # ОК 034-2014: категория XX.XX.XX.XX0, подкатегория XX.XX.XX.XXX
+    assert code_covers("26.51.63.130", "26.51.63.139")
+    assert code_covers("26.51.63.130", "26.51.63.131")
+    assert code_covers("26.40.20.120", "26.40.20.122")
+    assert not code_covers("26.51.63.130", "26.51.63.121")  # другая категория (.120 — жидкости)
+    assert not code_covers("26.51.63.131", "26.51.63.139")  # подкатегория не покрывает соседнюю
+    assert not code_covers("26.51.63.130", "26.51.6")  # более общий код не покрывается частным

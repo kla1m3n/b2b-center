@@ -1,0 +1,193 @@
+name;okpd2_expected;regime_expected;appendix_item_expected;source;variant
+"Нотубук Lenovo IdeaPad Slim 3 15.6"" i5/16Gb/512Gb SSD";26.20.11.110;restriction;2:195 3:37;claude-starter;typo_swap
+"Ноубук Lenovo IdeaPad Slim 3 15.6"" i5/16Gb/512Gb SSD";26.20.11.110;restriction;2:195 3:37;claude-starter;typo_drop
+"Ноутбук Lenovo IdeaPad Slim 3 15.6"" i5/16Gb/512Gb SSD, арт. KX-2041, 5 шт.";26.20.11.110;restriction;2:195 3:37;claude-starter;specs
+"10 шт. Ноутбук Lenovo IdeaPad Slim 3 15.6"" i5/16Gb/512Gb SSD";26.20.11.110;restriction;2:195 3:37;claude-starter;qty_first
+"Поставка товара: Ноутбук Lenovo IdeaPad Slim 3 15.6"" i5/16Gb/512Gb SSD (или эквивалент)";26.20.11.110;restriction;2:195 3:37;claude-starter;boiler
+"НОУТБУК LENOVO IDEAPAD SLIM 3 15.6"" I5/16GB/512GB SSD";26.20.11.110;restriction;2:195 3:37;claude-starter;upper
+Сисетмный блок Intel Core i5, 16 ГБ ОЗУ;26.20.15.120;restriction;2:199 3:42;claude-starter;typo_swap
+Систмный блок Intel Core i5, 16 ГБ ОЗУ;26.20.15.120;restriction;2:199 3:42;claude-starter;typo_drop
+Системный блок Intel Core i5, 16 ГБ ОЗУ, арт. KX-2041, 5 шт.;26.20.15.120;restriction;2:199 3:42;claude-starter;specs
+10 шт. Системный блок Intel Core i5, 16 ГБ ОЗУ;26.20.15.120;restriction;2:199 3:42;claude-starter;qty_first
+Поставка товара: Системный блок Intel Core i5, 16 ГБ ОЗУ (или эквивалент);26.20.15.120;restriction;2:199 3:42;claude-starter;boiler
+СИСТЕМНЫЙ БЛОК INTEL CORE I5, 16 ГБ ОЗУ;26.20.15.120;restriction;2:199 3:42;claude-starter;upper
+Моинтор Samsung 27 дюймов;26.20.17.110;restriction;2:201 3:44;claude-starter;typo_swap
+Монтор Samsung 27 дюймов;26.20.17.110;restriction;2:201 3:44;claude-starter;typo_drop
+Монитор Samsung 27 дюймов, арт. KX-2041, 5 шт.;26.20.17.110;restriction;2:201 3:44;claude-starter;specs
+10 шт. Монитор Samsung 27 дюймов;26.20.17.110;restriction;2:201 3:44;claude-starter;qty_first
+Поставка товара: Монитор Samsung 27 дюймов (или эквивалент);26.20.17.110;restriction;2:201 3:44;claude-starter;boiler
+МОНИТОР SAMSUNG 27 ДЮЙМОВ;26.20.17.110;restriction;2:201 3:44;claude-starter;upper
+Принтер лазреный HP LaserJet Pro M404dn;26.20.16.120;restriction;2:200 3:43;claude-starter;typo_swap
+Принтер лазеный HP LaserJet Pro M404dn;26.20.16.120;restriction;2:200 3:43;claude-starter;typo_drop
+Принтер лазерный HP LaserJet Pro M404dn, арт. KX-2041, 5 шт.;26.20.16.120;restriction;2:200 3:43;claude-starter;specs
+10 шт. Принтер лазерный HP LaserJet Pro M404dn;26.20.16.120;restriction;2:200 3:43;claude-starter;qty_first
+Поставка товара: Принтер лазерный HP LaserJet Pro M404dn (или эквивалент);26.20.16.120;restriction;2:200 3:43;claude-starter;boiler
+ПРИНТЕР ЛАЗЕРНЫЙ HP LASERJET PRO M404DN;26.20.16.120;restriction;2:200 3:43;claude-starter;upper
+Клаваитура проводная USB;26.20.16.110;restriction;2:200 3:43;claude-starter;typo_swap
+Клавитура проводная USB;26.20.16.110;restriction;2:200 3:43;claude-starter;typo_drop
+Клавиатура проводная USB, арт. KX-2041, 5 шт.;26.20.16.110;restriction;2:200 3:43;claude-starter;specs
+10 шт. Клавиатура проводная USB;26.20.16.110;restriction;2:200 3:43;claude-starter;qty_first
+Поставка товара: Клавиатура проводная USB (или эквивалент);26.20.16.110;restriction;2:200 3:43;claude-starter;boiler
+КЛАВИАТУРА ПРОВОДНАЯ USB;26.20.16.110;restriction;2:200 3:43;claude-starter;upper
+Бумага для офсиной техники SvetoCopy А4 80 г/м2, 500 л;17.12.14.110;ban;1:10 3:13;claude-starter;typo_swap
+Бумага для офиной техники SvetoCopy А4 80 г/м2, 500 л;17.12.14.110;ban;1:10 3:13;claude-starter;typo_drop
+Бумага для офисной техники SvetoCopy А4 80 г/м2, 500 л, арт. KX-2041, 5 шт.;17.12.14.110;ban;1:10 3:13;claude-starter;specs
+10 шт. Бумага для офисной техники SvetoCopy А4 80 г/м2, 500 л;17.12.14.110;ban;1:10 3:13;claude-starter;qty_first
+Поставка товара: Бумага для офисной техники SvetoCopy А4 80 г/м2, 500 л (или эквивалент);17.12.14.110;ban;1:10 3:13;claude-starter;boiler
+БУМАГА ДЛЯ ОФИСНОЙ ТЕХНИКИ SVETOCOPY А4 80 Г/М2, 500 Л;17.12.14.110;ban;1:10 3:13;claude-starter;upper
+Бумага туалетная двухлсойная;17.22.11.110;none;;claude-starter;typo_swap
+Бумага туалетная двухсойная;17.22.11.110;none;;claude-starter;typo_drop
+Бумага туалетная двухслойная, арт. KX-2041, 5 шт.;17.22.11.110;none;;claude-starter;specs
+10 шт. Бумага туалетная двухслойная;17.22.11.110;none;;claude-starter;qty_first
+Поставка товара: Бумага туалетная двухслойная (или эквивалент);17.22.11.110;none;;claude-starter;boiler
+БУМАГА ТУАЛЕТНАЯ ДВУХСЛОЙНАЯ;17.22.11.110;none;;claude-starter;upper
+Блконот А5 в клетку 80 листов;17.23.13.191;restriction;2:3;claude-starter;typo_swap
+Блонот А5 в клетку 80 листов;17.23.13.191;restriction;2:3;claude-starter;typo_drop
+Блокнот А5 в клетку 80 листов, арт. KX-2041, 5 шт.;17.23.13.191;restriction;2:3;claude-starter;specs
+10 шт. Блокнот А5 в клетку 80 листов;17.23.13.191;restriction;2:3;claude-starter;qty_first
+Поставка товара: Блокнот А5 в клетку 80 листов (или эквивалент);17.23.13.191;restriction;2:3;claude-starter;boiler
+БЛОКНОТ А5 В КЛЕТКУ 80 ЛИСТОВ;17.23.13.191;restriction;2:3;claude-starter;upper
+Ручка шаркиовая синяя;32.99.12.110;none;;claude-starter;typo_swap
+Ручка шариовая синяя;32.99.12.110;none;;claude-starter;typo_drop
+Ручка шариковая синяя, арт. KX-2041, 5 шт.;32.99.12.110;none;;claude-starter;specs
+10 шт. Ручка шариковая синяя;32.99.12.110;none;;claude-starter;qty_first
+Поставка товара: Ручка шариковая синяя (или эквивалент);32.99.12.110;none;;claude-starter;boiler
+РУЧКА ШАРИКОВАЯ СИНЯЯ;32.99.12.110;none;;claude-starter;upper
+Кальуклятор настольный 12 разрядов;28.23.12.110;advantage;3:147;claude-starter;typo_swap
+Кальклятор настольный 12 разрядов;28.23.12.110;advantage;3:147;claude-starter;typo_drop
+Калькулятор настольный 12 разрядов, арт. KX-2041, 5 шт.;28.23.12.110;advantage;3:147;claude-starter;specs
+10 шт. Калькулятор настольный 12 разрядов;28.23.12.110;advantage;3:147;claude-starter;qty_first
+Поставка товара: Калькулятор настольный 12 разрядов (или эквивалент);28.23.12.110;advantage;3:147;claude-starter;boiler
+КАЛЬКУЛЯТОР НАСТОЛЬНЫЙ 12 РАЗРЯДОВ;28.23.12.110;advantage;3:147;claude-starter;upper
+Стол письемнный офисный;31.01.12.110;restriction;2:139 3:232;claude-starter;typo_swap
+Стол письмнный офисный;31.01.12.110;restriction;2:139 3:232;claude-starter;typo_drop
+Стол письменный офисный, арт. KX-2041, 5 шт.;31.01.12.110;restriction;2:139 3:232;claude-starter;specs
+10 шт. Стол письменный офисный;31.01.12.110;restriction;2:139 3:232;claude-starter;qty_first
+Поставка товара: Стол письменный офисный (или эквивалент);31.01.12.110;restriction;2:139 3:232;claude-starter;boiler
+СТОЛ ПИСЬМЕННЫЙ ОФИСНЫЙ;31.01.12.110;restriction;2:139 3:232;claude-starter;upper
+Сматрфон Samsung Galaxy A55;26.30.22.110;restriction;2:212 3:57;claude-starter;typo_swap
+Смарфон Samsung Galaxy A55;26.30.22.110;restriction;2:212 3:57;claude-starter;typo_drop
+Смартфон Samsung Galaxy A55, арт. KX-2041, 5 шт.;26.30.22.110;restriction;2:212 3:57;claude-starter;specs
+10 шт. Смартфон Samsung Galaxy A55;26.30.22.110;restriction;2:212 3:57;claude-starter;qty_first
+Поставка товара: Смартфон Samsung Galaxy A55 (или эквивалент);26.30.22.110;restriction;2:212 3:57;claude-starter;boiler
+СМАРТФОН SAMSUNG GALAXY A55;26.30.22.110;restriction;2:212 3:57;claude-starter;upper
+Телвеизор LED 55 дюймов;26.40.20.120;restriction;2:236 3:63;claude-starter;typo_swap
+Телеизор LED 55 дюймов;26.40.20.120;restriction;2:236 3:63;claude-starter;typo_drop
+Телевизор LED 55 дюймов, арт. KX-2041, 5 шт.;26.40.20.120;restriction;2:236 3:63;claude-starter;specs
+10 шт. Телевизор LED 55 дюймов;26.40.20.120;restriction;2:236 3:63;claude-starter;qty_first
+Поставка товара: Телевизор LED 55 дюймов (или эквивалент);26.40.20.120;restriction;2:236 3:63;claude-starter;boiler
+ТЕЛЕВИЗОР LED 55 ДЮЙМОВ;26.40.20.120;restriction;2:236 3:63;claude-starter;upper
+Шины зимние 205/55 R16 для легкового автоомбиля;22.11.11.000;ban;1:14 2:109 2:111 2:112;claude-starter;typo_swap
+Шины зимние 205/55 R16 для легкового автомбиля;22.11.11.000;ban;1:14 2:109 2:111 2:112;claude-starter;typo_drop
+Шины зимние 205/55 R16 для легкового автомобиля, арт. KX-2041, 5 шт.;22.11.11.000;ban;1:14 2:109 2:111 2:112;claude-starter;specs
+10 шт. Шины зимние 205/55 R16 для легкового автомобиля;22.11.11.000;ban;1:14 2:109 2:111 2:112;claude-starter;qty_first
+Поставка товара: Шины зимние 205/55 R16 для легкового автомобиля (или эквивалент);22.11.11.000;ban;1:14 2:109 2:111 2:112;claude-starter;boiler
+ШИНЫ ЗИМНИЕ 205/55 R16 ДЛЯ ЛЕГКОВОГО АВТОМОБИЛЯ;22.11.11.000;ban;1:14 2:109 2:111 2:112;claude-starter;upper
+Безнин АИ-92;19.20.21;none;;claude-starter;typo_swap
+Бенин АИ-92;19.20.21;none;;claude-starter;typo_drop
+Бензин АИ-92, арт. KX-2041, 5 шт.;19.20.21;none;;claude-starter;specs
+10 шт. Бензин АИ-92;19.20.21;none;;claude-starter;qty_first
+Поставка товара: Бензин АИ-92 (или эквивалент);19.20.21;none;;claude-starter;boiler
+БЕНЗИН АИ-92;19.20.21;none;;claude-starter;upper
+Огнетшуитель порошковый ОП-4;28.29.22.110;none;;claude-starter;typo_swap
+Огнетуитель порошковый ОП-4;28.29.22.110;none;;claude-starter;typo_drop
+Огнетушитель порошковый ОП-4, арт. KX-2041, 5 шт.;28.29.22.110;none;;claude-starter;specs
+10 шт. Огнетушитель порошковый ОП-4;28.29.22.110;none;;claude-starter;qty_first
+Поставка товара: Огнетушитель порошковый ОП-4 (или эквивалент);28.29.22.110;none;;claude-starter;boiler
+ОГНЕТУШИТЕЛЬ ПОРОШКОВЫЙ ОП-4;28.29.22.110;none;;claude-starter;upper
+Шапмунь для волос 400 мл;20.42.16.110;none;;claude-starter;typo_swap
+Шамунь для волос 400 мл;20.42.16.110;none;;claude-starter;typo_drop
+Шампунь для волос 400 мл, арт. KX-2041, 5 шт.;20.42.16.110;none;;claude-starter;specs
+10 шт. Шампунь для волос 400 мл;20.42.16.110;none;;claude-starter;qty_first
+Поставка товара: Шампунь для волос 400 мл (или эквивалент);20.42.16.110;none;;claude-starter;boiler
+ШАМПУНЬ ДЛЯ ВОЛОС 400 МЛ;20.42.16.110;none;;claude-starter;upper
+Мыло туаелтное твердое 100 г;20.41.31.110;none;;claude-starter;typo_swap
+Мыло туалтное твердое 100 г;20.41.31.110;none;;claude-starter;typo_drop
+Мыло туалетное твердое 100 г, арт. KX-2041, 5 шт.;20.41.31.110;none;;claude-starter;specs
+10 шт. Мыло туалетное твердое 100 г;20.41.31.110;none;;claude-starter;qty_first
+Поставка товара: Мыло туалетное твердое 100 г (или эквивалент);20.41.31.110;none;;claude-starter;boiler
+МЫЛО ТУАЛЕТНОЕ ТВЕРДОЕ 100 Г;20.41.31.110;none;;claude-starter;upper
+Средство дезинфциирующее для поверхностей, 1 л;20.20.14.000;restriction;2:49 2:364 2:376;claude-starter;typo_swap
+Средство дезинфиирующее для поверхностей, 1 л;20.20.14.000;restriction;2:49 2:364 2:376;claude-starter;typo_drop
+Средство дезинфицирующее для поверхностей, 1 л, арт. KX-2041, 5 шт.;20.20.14.000;restriction;2:49 2:364 2:376;claude-starter;specs
+10 шт. Средство дезинфицирующее для поверхностей, 1 л;20.20.14.000;restriction;2:49 2:364 2:376;claude-starter;qty_first
+Поставка товара: Средство дезинфицирующее для поверхностей, 1 л (или эквивалент);20.20.14.000;restriction;2:49 2:364 2:376;claude-starter;boiler
+СРЕДСТВО ДЕЗИНФИЦИРУЮЩЕЕ ДЛЯ ПОВЕРХНОСТЕЙ, 1 Л;20.20.14.000;restriction;2:49 2:364 2:376;claude-starter;upper
+Лампа светоидодная E27 10 Вт;27.40.15.150;restriction;2:328 3:104;claude-starter;typo_swap
+Лампа светододная E27 10 Вт;27.40.15.150;restriction;2:328 3:104;claude-starter;typo_drop
+Лампа светодиодная E27 10 Вт, арт. KX-2041, 5 шт.;27.40.15.150;restriction;2:328 3:104;claude-starter;specs
+10 шт. Лампа светодиодная E27 10 Вт;27.40.15.150;restriction;2:328 3:104;claude-starter;qty_first
+Поставка товара: Лампа светодиодная E27 10 Вт (или эквивалент);27.40.15.150;restriction;2:328 3:104;claude-starter;boiler
+ЛАМПА СВЕТОДИОДНАЯ E27 10 ВТ;27.40.15.150;restriction;2:328 3:104;claude-starter;upper
+Щебень граинтный фракции 20-40;08.12.12.140;restriction;2:1 3:1;claude-starter;typo_swap
+Щебень грантный фракции 20-40;08.12.12.140;restriction;2:1 3:1;claude-starter;typo_drop
+Щебень гранитный фракции 20-40, арт. KX-2041, 5 шт.;08.12.12.140;restriction;2:1 3:1;claude-starter;specs
+10 шт. Щебень гранитный фракции 20-40;08.12.12.140;restriction;2:1 3:1;claude-starter;qty_first
+Поставка товара: Щебень гранитный фракции 20-40 (или эквивалент);08.12.12.140;restriction;2:1 3:1;claude-starter;boiler
+ЩЕБЕНЬ ГРАНИТНЫЙ ФРАКЦИИ 20-40;08.12.12.140;restriction;2:1 3:1;claude-starter;upper
+Молоко питьевое пастерзиованное 3,2%, 1 л;10.51.11;none;;claude-starter;typo_swap
+Молоко питьевое пастериованное 3,2%, 1 л;10.51.11;none;;claude-starter;typo_drop
+Молоко питьевое пастеризованное 3,2%, 1 л, арт. KX-2041, 5 шт.;10.51.11;none;;claude-starter;specs
+10 шт. Молоко питьевое пастеризованное 3,2%, 1 л;10.51.11;none;;claude-starter;qty_first
+Поставка товара: Молоко питьевое пастеризованное 3,2%, 1 л (или эквивалент);10.51.11;none;;claude-starter;boiler
+МОЛОКО ПИТЬЕВОЕ ПАСТЕРИЗОВАННОЕ 3,2%, 1 Л;10.51.11;none;;claude-starter;upper
+Комплект постлеьного белья хлопок 1,5-спальный;13.92.12.114;ban;1:2 2:109 2:111 2:112;claude-starter;typo_swap
+Комплект постеьного белья хлопок 1,5-спальный;13.92.12.114;ban;1:2 2:109 2:111 2:112;claude-starter;typo_drop
+Комплект постельного белья хлопок 1,5-спальный, арт. KX-2041, 5 шт.;13.92.12.114;ban;1:2 2:109 2:111 2:112;claude-starter;specs
+10 шт. Комплект постельного белья хлопок 1,5-спальный;13.92.12.114;ban;1:2 2:109 2:111 2:112;claude-starter;qty_first
+Поставка товара: Комплект постельного белья хлопок 1,5-спальный (или эквивалент);13.92.12.114;ban;1:2 2:109 2:111 2:112;claude-starter;boiler
+КОМПЛЕКТ ПОСТЕЛЬНОГО БЕЛЬЯ ХЛОПОК 1,5-СПАЛЬНЫЙ;13.92.12.114;ban;1:2 2:109 2:111 2:112;claude-starter;upper
+Трубы ПНД напорные для водорповода d32;22.21.21.122;restriction;2:71 2:109 2:111 2:112;claude-starter;typo_swap
+Трубы ПНД напорные для водоповода d32;22.21.21.122;restriction;2:71 2:109 2:111 2:112;claude-starter;typo_drop
+Трубы ПНД напорные для водопровода d32, арт. KX-2041, 5 шт.;22.21.21.122;restriction;2:71 2:109 2:111 2:112;claude-starter;specs
+10 шт. Трубы ПНД напорные для водопровода d32;22.21.21.122;restriction;2:71 2:109 2:111 2:112;claude-starter;qty_first
+Поставка товара: Трубы ПНД напорные для водопровода d32 (или эквивалент);22.21.21.122;restriction;2:71 2:109 2:111 2:112;claude-starter;boiler
+ТРУБЫ ПНД НАПОРНЫЕ ДЛЯ ВОДОПРОВОДА D32;22.21.21.122;restriction;2:71 2:109 2:111 2:112;claude-starter;upper
+Каебль ВВГнг 3х2,5;27.32.13.110;ban;1:31_1 2:113 3:103;claude-starter;typo_swap
+Кабль ВВГнг 3х2,5;27.32.13.110;ban;1:31_1 2:113 3:103;claude-starter;typo_drop
+Кабель ВВГнг 3х2,5, арт. KX-2041, 5 шт.;27.32.13.110;ban;1:31_1 2:113 3:103;claude-starter;specs
+10 шт. Кабель ВВГнг 3х2,5;27.32.13.110;ban;1:31_1 2:113 3:103;claude-starter;qty_first
+Поставка товара: Кабель ВВГнг 3х2,5 (или эквивалент);27.32.13.110;ban;1:31_1 2:113 3:103;claude-starter;boiler
+КАБЕЛЬ ВВГНГ 3Х2,5;27.32.13.110;ban;1:31_1 2:113 3:103;claude-starter;upper
+Электровдигатель асинхронный трехфазный АИР 11 кВт;27.11.24;restriction;2:107 3:92;claude-starter;typo_swap
+Электродигатель асинхронный трехфазный АИР 11 кВт;27.11.24;restriction;2:107 3:92;claude-starter;typo_drop
+Электродвигатель асинхронный трехфазный АИР 11 кВт, арт. KX-2041, 5 шт.;27.11.24;restriction;2:107 3:92;claude-starter;specs
+10 шт. Электродвигатель асинхронный трехфазный АИР 11 кВт;27.11.24;restriction;2:107 3:92;claude-starter;qty_first
+Поставка товара: Электродвигатель асинхронный трехфазный АИР 11 кВт (или эквивалент);27.11.24;restriction;2:107 3:92;claude-starter;boiler
+ЭЛЕКТРОДВИГАТЕЛЬ АСИНХРОННЫЙ ТРЕХФАЗНЫЙ АИР 11 КВТ;27.11.24;restriction;2:107 3:92;claude-starter;upper
+Счетчик электрэонергии однофазный Меркурий 201;26.51.63.130;ban;1:28 3:75 3:76;claude-starter;typo_swap
+Счетчик электронергии однофазный Меркурий 201;26.51.63.130;ban;1:28 3:75 3:76;claude-starter;typo_drop
+Счетчик электроэнергии однофазный Меркурий 201, арт. KX-2041, 5 шт.;26.51.63.130;ban;1:28 3:75 3:76;claude-starter;specs
+10 шт. Счетчик электроэнергии однофазный Меркурий 201;26.51.63.130;ban;1:28 3:75 3:76;claude-starter;qty_first
+Поставка товара: Счетчик электроэнергии однофазный Меркурий 201 (или эквивалент);26.51.63.130;ban;1:28 3:75 3:76;claude-starter;boiler
+СЧЕТЧИК ЭЛЕКТРОЭНЕРГИИ ОДНОФАЗНЫЙ МЕРКУРИЙ 201;26.51.63.130;ban;1:28 3:75 3:76;claude-starter;upper
+Аппарат УЗИ порттаивный;26.60.12.132;restriction;2:314 2:380 3:78 3:86;claude-starter;typo_swap
+Аппарат УЗИ портаивный;26.60.12.132;restriction;2:314 2:380 3:78 3:86;claude-starter;typo_drop
+Аппарат УЗИ портативный, арт. KX-2041, 5 шт.;26.60.12.132;restriction;2:314 2:380 3:78 3:86;claude-starter;specs
+10 шт. Аппарат УЗИ портативный;26.60.12.132;restriction;2:314 2:380 3:78 3:86;claude-starter;qty_first
+Поставка товара: Аппарат УЗИ портативный (или эквивалент);26.60.12.132;restriction;2:314 2:380 3:78 3:86;claude-starter;boiler
+АППАРАТ УЗИ ПОРТАТИВНЫЙ;26.60.12.132;restriction;2:314 2:380 3:78 3:86;claude-starter;upper
+Шприц одноарзовый 5 мл;32.50.13.110;restriction;2:300 2:308 2:353 2:385 2:386 2:388 2:400 2:401 2:429 2:430 2:431 2:432;claude-starter;typo_swap
+Шприц однорзовый 5 мл;32.50.13.110;restriction;2:300 2:308 2:353 2:385 2:386 2:388 2:400 2:401 2:429 2:430 2:431 2:432;claude-starter;typo_drop
+Шприц одноразовый 5 мл, арт. KX-2041, 5 шт.;32.50.13.110;restriction;2:300 2:308 2:353 2:385 2:386 2:388 2:400 2:401 2:429 2:430 2:431 2:432;claude-starter;specs
+10 шт. Шприц одноразовый 5 мл;32.50.13.110;restriction;2:300 2:308 2:353 2:385 2:386 2:388 2:400 2:401 2:429 2:430 2:431 2:432;claude-starter;qty_first
+Поставка товара: Шприц одноразовый 5 мл (или эквивалент);32.50.13.110;restriction;2:300 2:308 2:353 2:385 2:386 2:388 2:400 2:401 2:429 2:430 2:431 2:432;claude-starter;boiler
+ШПРИЦ ОДНОРАЗОВЫЙ 5 МЛ;32.50.13.110;restriction;2:300 2:308 2:353 2:385 2:386 2:388 2:400 2:401 2:429 2:430 2:431 2:432;claude-starter;upper
+Перчатки резиновые хозяйтсвенные;22.19.60.114;restriction;2:69 2:109 2:111 2:112;claude-starter;typo_swap
+Перчатки резиновые хозяйсвенные;22.19.60.114;restriction;2:69 2:109 2:111 2:112;claude-starter;typo_drop
+Перчатки резиновые хозяйственные, арт. KX-2041, 5 шт.;22.19.60.114;restriction;2:69 2:109 2:111 2:112;claude-starter;specs
+10 шт. Перчатки резиновые хозяйственные;22.19.60.114;restriction;2:69 2:109 2:111 2:112;claude-starter;qty_first
+Поставка товара: Перчатки резиновые хозяйственные (или эквивалент);22.19.60.114;restriction;2:69 2:109 2:111 2:112;claude-starter;boiler
+ПЕРЧАТКИ РЕЗИНОВЫЕ ХОЗЯЙСТВЕННЫЕ;22.19.60.114;restriction;2:69 2:109 2:111 2:112;claude-starter;upper
+Пилта ДСП 16 мм;16.21.13.000;ban;1:8;claude-starter;typo_swap
+Плта ДСП 16 мм;16.21.13.000;ban;1:8;claude-starter;typo_drop
+Плита ДСП 16 мм, арт. KX-2041, 5 шт.;16.21.13.000;ban;1:8;claude-starter;specs
+10 шт. Плита ДСП 16 мм;16.21.13.000;ban;1:8;claude-starter;qty_first
+Поставка товара: Плита ДСП 16 мм (или эквивалент);16.21.13.000;ban;1:8;claude-starter;boiler
+ПЛИТА ДСП 16 ММ;16.21.13.000;ban;1:8;claude-starter;upper
+Автоомбиль легковой Lada Vesta;29.10.22.000;ban;1:92 3:190;claude-starter;typo_swap
+Автомбиль легковой Lada Vesta;29.10.22.000;ban;1:92 3:190;claude-starter;typo_drop
+Автомобиль легковой Lada Vesta, арт. KX-2041, 5 шт.;29.10.22.000;ban;1:92 3:190;claude-starter;specs
+10 шт. Автомобиль легковой Lada Vesta;29.10.22.000;ban;1:92 3:190;claude-starter;qty_first
+Поставка товара: Автомобиль легковой Lada Vesta (или эквивалент);29.10.22.000;ban;1:92 3:190;claude-starter;boiler
+АВТОМОБИЛЬ ЛЕГКОВОЙ LADA VESTA;29.10.22.000;ban;1:92 3:190;claude-starter;upper

@@ -36,3 +36,22 @@ export function downloadCsv(results: ClassificationResult[], filename = "pp1875-
   a.click();
   URL.revokeObjectURL(url);
 }
+
+// Шаблон для загрузки списка: backend сам находит колонку с наименованиями и пропускает шапку (io_files.read_names)
+const TEMPLATE_ROWS = [
+  ["№", "Наименование товара", "Количество"],
+  ["1", "Ноутбук Lenovo IdeaPad Slim 3 15.6\"", "5"],
+  ["2", "Бумага офисная А4, 500 листов", "100"],
+  ["3", "Стул офисный на колёсах", "12"],
+  ["4", "Щебень гранитный фракции 20-40", "30"],
+];
+
+export function downloadTemplate(): void {
+  const csv = "\uFEFF" + TEMPLATE_ROWS.map((row) => row.map(cell).join(";")).join("\r\n");
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "shablon-tovary.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}

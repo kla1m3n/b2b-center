@@ -84,3 +84,41 @@
   font-size: 14px;
   color: var(--mantine-color-eis-6);
 }
+
+/* «Как это работает» — шаги как блоки-разделы на главной ЕИС: белая плашка, номер в светлом круге */
+.how-step {
+  background: #fff;
+  padding: 16px;
+  border-radius: 2px;
+}
+.how-step__num {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--mantine-color-default-border);
+  color: var(--mantine-color-eis-6);
+  display: grid;
+  place-items: center;
+  font-weight: 500;
+}
+
+/* Перетаскивание файла на форму ввода */
+.drop-target {
+  position: relative;
+}
+.drop-target[data-dragging] {
+  outline: 2px dashed var(--mantine-color-eis-6);
+  outline-offset: -2px;
+}
+.drop-target__overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(231, 240, 252, 0.92);
+  color: var(--mantine-color-eis-6);
+  font-weight: 500;
+  pointer-events: none;
+  z-index: 2;
+}

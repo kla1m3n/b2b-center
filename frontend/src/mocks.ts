@@ -186,6 +186,27 @@ export async function classifyBatch(names: string[]): Promise<{ job_id: string }
   return { job_id: id };
 }
 
+// Как backend/app/io_files.py: колонка, где ≥ 60% значений — текст с буквами; шапка («Наименование…») пропускается
+const looksLikeName = (v: string) => v.trim().length >= 3 && /[a-zа-яё]{2,}/i.test(v);
+const HEADER = /^(№|n|наименование|название|товар|продукция|позиция|предмет|name|item)/i;
+
+export function namesFromCsv(text: string): string[] {
+  const rows = text.replace(/^\uFEFF/, "").split(/\r?\n/).filter((l) => l.trim()).map((l) => l.split(/[;\t]/));
+  const width = Math.max(0, ...rows.map((r) => r.length));
+  let best = -1;
+  let bestScore = -1;
+  for (let col = 0; col < width; col++) {
+    const values = rows.map((r) => r[col]).filter((v): v is string => Boolean(v && v.trim()));
+    if (!values.length) continue;
+    const share = values.filter(looksLikeName).length / values.length;
+    const score = share + Math.min(values.reduce((n, v) => n + v.length, 0) / values.length, 60) / 600;
+    if (share >= 0.6 && score > bestScore) [best, bestScore] = [col, score];
+  }
+  if (best < 0) return [];
+  const out = rows.map((r) => (r[best] ?? "").replace(/^"|"$/g, "").trim()).filter(looksLikeName);
+  return out.length && HEADER.test(out[0]) ? out.slice(1) : out;
+}
+
 const DEMO_FILE_NAMES = [
   "Ноутбук Lenovo IdeaPad Slim 3 15.6\"",
   "Бумага офисная А4, 500 л.",
@@ -195,12 +216,11 @@ const DEMO_FILE_NAMES = [
 ];
 
 export async function classifyFile(file: File): Promise<{ job_id: string }> {
-  // В заглушке .csv/.txt читаем построчно; .xlsx разбирает только backend — подставляем демо-список.
+  // .xlsx в заглушке не разбираем (это делает backend) — подставляем демо-список
   let names = DEMO_FILE_NAMES;
-  if (/\.(csv|txt)$/i.test(file.name)) {
-    const text = await file.text();
-    names = text.split(/\r?\n/).map((l) => l.split(/[;\t]/)[0].trim()).filter((l) => l.length >= 3);
-  }
+  if (/\.csv$/i.test(file.name)) names = namesFromCsv(await file.text());
+  else if (/\.txt$/i.test(file.name)) names = (await file.text()).split(/\r?\n/).filter((l) => /[a-zа-яё]{2,}/i.test(l)).map((l) => l.trim());
+  if (!names.length) throw new Error("Не нашли в файле колонку с наименованиями товаров");
   return classifyBatch(names);
 }
 

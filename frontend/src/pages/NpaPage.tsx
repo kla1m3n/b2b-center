@@ -39,6 +39,10 @@ export function NpaPage({ uploadProtected }: { uploadProtected: boolean }) {
 
   async function onUpload() {
     if (!file) return;
+    if (/[^ -~]/.test(token)) {
+      setError("Пароль администратора — только латиница, цифры и знаки (без кириллицы)");
+      return;
+    }
     if (file.size > MAX_MB * 1024 * 1024) {
       setError(`Файл больше ${MAX_MB} МБ`);
       return;

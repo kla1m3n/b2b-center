@@ -73,11 +73,11 @@ def test_npa_item_text_for_reference_link(client, clean_npa, celery_eager, sessi
 
 @pytest.fixture
 def admin_token(monkeypatch):
-    monkeypatch.setenv("ADMIN_TOKEN", "секрет-1875")
+    monkeypatch.setenv("ADMIN_TOKEN", "secret-1875")  # заголовки HTTP — только латиница
     from app.config import get_settings
 
     get_settings.cache_clear()
-    yield "секрет-1875"
+    yield "secret-1875"
     get_settings.cache_clear()
 
 
@@ -85,7 +85,7 @@ def test_upload_requires_admin_token_when_set(client, clean_npa, admin_token, ce
     sample = (FIXTURES / "npa_sample.json").read_bytes()
     assert upload(client, "pp.json", sample).status_code == 403
     wrong = client.post("/api/npa/upload", files={"file": ("pp.json", sample, "application/json")},
-                        data={"title": "x"}, headers={"X-Admin-Token": "не тот"})
+                        data={"title": "x"}, headers={"X-Admin-Token": "wrong-token"})
     assert wrong.status_code == 403 and "пароль" in wrong.json()["detail"]
     assert client.get("/api/npa/versions").json() == []  # отклонённая загрузка не создаёт редакцию
     ok = client.post("/api/npa/upload", files={"file": ("pp.json", sample, "application/json")},

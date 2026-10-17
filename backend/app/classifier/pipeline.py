@@ -1,4 +1,4 @@
-"""Конвейер классификации: нормализация → поиск по смыслу → сверка с ПП → результат.
+"""Конвейер классификации: нормализация → поиск по смыслу + по словам → сверка с ПП → результат.
 
 Кросс-энкодер (реранкер) убран: на реальных закупках он ухудшал точность и был в 10 раз медленнее (reports/models.md).
 """
@@ -6,17 +6,20 @@ import re
 import threading
 from collections.abc import Callable
 
+import numpy as np
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from app.classifier.confidence import calibrated
 from app.classifier.embedder import Embedder
+from app.classifier.lexical import LexicalIndex, rrf
 from app.classifier.matcher import match, rank_by_overlap, verdict
 from app.classifier.normalize import normalize
+from app.classifier.rerank import prefer_goods, prefer_medical
 from app.classifier.retriever import Candidate, retrieve
 from app.config import Settings
-from app.models import ClassificationCache, NpaVersion
+from app.models import ClassificationCache, NpaVersion, Okpd2Code, Okpd2Text
 from app.npa.service import get_active_version, get_items
 from app.schemas import REGIME_LABELS, Alternative, ClassificationResult, NpaMatch, Okpd2Ref, Regime
 
@@ -32,6 +35,7 @@ class Pipeline:
         self.embedder = embedder
         self.llm = llm
         self._items: dict[int, list] = {}
+        self._lex: LexicalIndex | None = None
         self._lock = threading.Lock()
 
     def warmup(self) -> None:
@@ -42,6 +46,43 @@ class Pipeline:
             version = get_active_version(session)
             if version:
                 self._version_items(session, version.id)
+            if self.s.lexical_search:
+                self._lexical(session)
+
+    def _lexical(self, session: Session) -> LexicalIndex:
+        """Индекс BM25 по текстам кодов нижнего уровня — строится один раз, в памяти (~1 с)."""
+        with self._lock:
+            if self._lex is None:
+                rows = session.execute(
+                    select(Okpd2Text.code, Okpd2Text.text).join(Okpd2Code, Okpd2Code.code == Okpd2Text.code)
+                    .where(Okpd2Code.is_leaf.is_(True))
+                ).all()
+                self._lex = LexicalIndex(rows)
+            return self._lex
+
+    def _fuse(self, session: Session, norm: str, qvec: np.ndarray, vec_cands: list[Candidate]) -> list[Candidate]:
+        """Поиск по смыслу + по словам, объединение по рангам (RRF). Оценка кандидата — по-прежнему косинусная
+        близость (на ней откалибрована уверенность), для найденных только по словам она досчитывается из БД."""
+        k = self.s.retrieve_k
+        lex = self._lexical(session).search(norm, k)
+        if not lex:
+            return vec_cands
+        order = rrf([[c.code for c in vec_cands], [code for code, _, _ in lex]], [1.0, self.s.lexical_weight])[:k]
+        by_code = {c.code: c for c in vec_cands}
+        lex_text = {code: text for code, _, text in lex}
+        missing = [c for c in order if c not in by_code]
+        if missing:
+            dist = Okpd2Text.embedding.cosine_distance(qvec.tolist())
+            rows = session.execute(
+                select(Okpd2Text.code, Okpd2Code.title, (1 - dist).label("score"))
+                .join(Okpd2Code, Okpd2Code.code == Okpd2Text.code)
+                .where(Okpd2Text.code.in_(missing))
+            ).all()
+            for code, title, score in rows:
+                prev = by_code.get(code)
+                if prev is None or score > prev.score:
+                    by_code[code] = Candidate(code=code, title=title, score=float(score), matched_text=lex_text[code])
+        return [by_code[c] for c in order if c in by_code]
 
     def _version_items(self, session: Session, version_id: int) -> list:
         with self._lock:
@@ -104,6 +145,9 @@ class Pipeline:
     def _classify_unique(self, session: Session, norms: list[str], version: NpaVersion | None) -> dict[str, dict]:
         qvecs = self.embedder.encode_queries(norms)
         cand_lists = retrieve(session, qvecs, self.s.retrieve_k)
+        if self.s.lexical_search:
+            cand_lists = [self._fuse(session, n, qv, c) for n, qv, c in zip(norms, qvecs, cand_lists)]
+        cand_lists = [prefer_medical(n, prefer_goods(n, c)) for n, c in zip(norms, cand_lists)]
         items = self._version_items(session, version.id) if version else []
         source_url = version.source_url if version else ""
         out = {}

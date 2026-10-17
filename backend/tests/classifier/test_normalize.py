@@ -24,3 +24,8 @@ def test_normalize_drops_eis_boilerplate_phrases():
     assert normalize("Перчатки резиновые (не является медицинским изделием)") == "перчатки резиновые"
     assert normalize("Картридж Xerox (или аналог)") == "картридж xerox"
     assert normalize("Бумага А4 или эквивалент") == "бумага а4"
+
+
+def test_normalize_expands_industry_abbreviations():
+    assert normalize("Плита ДСП 16 мм") == "плита плита древесно-стружечная 16 мм"
+    assert normalize("Панель ПВХ") == "панель поливинилхлорид"

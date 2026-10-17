@@ -1,7 +1,8 @@
 """Строит data/okpd2_synonyms.csv (code;text) из scripts/synonyms_seed.py, сверяя коды со справочником.
 
 Правило сопоставления записи (префикс, регулярка, синонимы):
-  * регулярка пустая  → синонимы привязываются к самому коду-префиксу (он должен существовать);
+  * регулярка пустая  → к самому коду-префиксу, если он нижнего уровня, иначе — к первому коду нижнего уровня
+    в этой группе (поиск строится только по кодам нижнего уровня);
   * иначе             → ко всем кодам нижнего уровня под префиксом, чьё наименование подходит (не более 3).
 
 Запуск (на хосте или в контейнере): python scripts/gen_synonyms.py --data ../data
@@ -21,7 +22,16 @@ MAX_CODES_PER_ENTRY = 3
 def resolve(rows: list[dict], prefix: str, pattern: str) -> list[str]:
     by_code = {r["code"]: r for r in rows}
     if not pattern:
-        return [prefix] if prefix in by_code else []
+        # Поиск строится только по кодам нижнего уровня. Раньше синоним для группы (например, «дсп» → 16.21.13)
+        # записывался на сам код группы и молча выбрасывался при построении индекса (119 из 561 синонима).
+        # Теперь он привязывается к первому — самому общему — конечному коду группы (чаще всего он там единственный).
+        if prefix not in by_code:
+            return []
+        if by_code[prefix]["is_leaf"] == "1":
+            return [prefix]
+        digits = prefix.replace(".", "")
+        leaves = [r["code"] for r in rows if r["is_leaf"] == "1" and r["code"].replace(".", "").startswith(digits)]
+        return leaves[:1]
     rx = re.compile(pattern, re.IGNORECASE)
     digits = prefix.replace(".", "")
     hits = [r["code"] for r in rows

@@ -2,6 +2,7 @@
 // Колонки как у backend-экспорта .xlsx (план, задача 8). Нужна, пока нет /api/jobs/{id}/export.xlsx
 // и для одиночной проверки, у которой нет задачи на backend.
 import { REGIME_LABELS, type ClassificationResult } from "./types";
+import { confidencePct } from "./confidence";
 
 const HEADER = ["Товар", "Код ОКПД2", "Наименование ОКПД2", "Режим", "Приложение", "Пункт", "Уверенность, %", "Проверить вручную"];
 
@@ -20,7 +21,7 @@ export function resultsToCsv(results: ClassificationResult[]): string {
       r.error ? "" : REGIME_LABELS[r.verdict],
       top ? top.appendix : "",
       r.npa_matches.map((m) => `${m.appendix}:${m.item_no}`).join(", "),
-      r.error ? "" : Math.round(r.confidence * 100),
+      r.error ? "" : confidencePct(r.confidence),
       r.needs_review ? "да" : "",
     ];
   });

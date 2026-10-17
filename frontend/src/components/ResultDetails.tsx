@@ -1,6 +1,7 @@
 import { Anchor, Badge, Group, List, Stack, Text } from "@mantine/core";
 import type { ClassificationResult } from "../types";
 import { RegimeBadge } from "./RegimeBadge";
+import { confidencePct } from "../confidence";
 
 export function ResultDetails({ result, onOpenItem }: { result: ClassificationResult; onOpenItem: (id: number) => void }) {
   return (
@@ -48,7 +49,7 @@ export function ResultDetails({ result, onOpenItem }: { result: ClassificationRe
           <List size="sm" spacing={2}>
             {result.alternatives.map((a) => (
               <List.Item key={a.code}>
-                {a.code} — {a.title} <Text span c="dimmed">({Math.round(a.confidence * 100)}%)</Text>
+                {a.code} — {a.title} <Text span c="dimmed">({confidencePct(a.confidence)}%)</Text>
               </List.Item>
             ))}
           </List>

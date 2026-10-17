@@ -1,6 +1,7 @@
 """Импорт списка товаров из файлов (.xlsx, .csv, .txt) и экспорт результатов в Excel."""
 import csv
 import io
+import math
 import re
 from collections.abc import Sequence
 
@@ -95,7 +96,7 @@ def results_to_xlsx(results: Sequence[ClassificationResult]) -> bytes:
             r.okpd2.title if r.okpd2 else "",
             REGIME_LABELS[r.verdict],
             items or "—",
-            round(r.confidence * 100),
+            math.floor(r.confidence * 100 + 1e-9),  # вниз, как на сайте: 0.7964 при пороге 80% — это 79%
             "да" if r.needs_review else "нет",
             r.error or r.explanation,
         ])

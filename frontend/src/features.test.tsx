@@ -53,3 +53,10 @@ describe("история проверок", () => {
     expect(removeFromHistory(entry.id).map((e) => e.source)).toEqual(["первая"]);
   });
 });
+
+describe("проценты уверенности", () => {
+  it("округляются вниз: при пороге 80% значение 0.7964 показывается как 79%", async () => {
+    const { confidencePct } = await import("./confidence");
+    expect([0.7964, 0.8, 0.29, 0.93, 1, 0].map(confidencePct)).toEqual([79, 80, 29, 93, 100, 0]);
+  });
+});

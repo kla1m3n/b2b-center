@@ -104,6 +104,8 @@ class Pipeline:
         if best.matched_text != best.title:
             expl += f" (совпадение по «{best.matched_text}»)"
         expl += f". Вердикт по ПП № 1875: {REGIME_LABELS[v].lower()}."
+        if not matches:
+            expl += " Код не входит в приложения 1–3 постановления: запрета и ограничения нет."
         return ClassificationResult(
             input=name,
             okpd2=Okpd2Ref(code=best.code, title=best.title),
@@ -121,6 +123,7 @@ class Pipeline:
         with self.session_factory() as session:
             version = session.get(NpaVersion, npa_version_id) if npa_version_id else get_active_version(session)
             vid = version.id if version else 0
+            source_url = version.source_url if version else ""
             todo = sorted({n for n in norms if _has_word.search(n)})
             cached = {c.norm_name: c.result for c in session.scalars(
                 select(ClassificationCache).where(ClassificationCache.npa_version == vid,
@@ -141,6 +144,7 @@ class Pipeline:
                 out.append(ClassificationResult.model_validate({
                     **cached_res, "input": name,
                     "needs_review": cached_res["confidence"] < self.s.needs_review_threshold,
+                    "npa_source_url": source_url,  # и для ответов из кэша, сохранённых до появления поля
                 }))
             else:
                 out.append(ClassificationResult(input=name, error=EMPTY_ERROR, needs_review=True, verdict=Regime.none))

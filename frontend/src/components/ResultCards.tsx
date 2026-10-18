@@ -1,6 +1,7 @@
 import { Anchor, Badge, Box, Group, Stack, Text, UnstyledButton } from "@mantine/core";
 import type { ClassificationResult } from "../types";
 import { ConfidenceCell } from "./ConfidenceCell";
+import { NotInAppendices } from "./NotInAppendices";
 import { REGIME_COLORS, RegimeBadge } from "./RegimeBadge";
 import { ResultDetails } from "./ResultDetails";
 
@@ -57,7 +58,7 @@ export function ResultCards({ results, expanded, onToggle, onOpenItem }: Props) 
                       {r.npa_matches.length > 1 && <Text span c="dimmed"> и ещё {r.npa_matches.length - 1}</Text>}
                     </Text>
                   ) : (
-                    <Text size="sm" c="dimmed">не входит в приложения 1–3</Text>
+                    <NotInAppendices url={r.npa_source_url} />
                   )}
                 </div>
 

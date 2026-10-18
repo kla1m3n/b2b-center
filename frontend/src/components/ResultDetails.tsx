@@ -12,7 +12,10 @@ export function ResultDetails({ result, onOpenItem }: { result: ClassificationRe
         <Text size="sm" fw={600} mb={4}>Пункты ПП № 1875</Text>
         {result.npa_matches.length === 0 ? (
           <Text size="sm" c="dimmed">
-            Код не входит в приложения 1–3 — запретов и ограничений нет, действует преимущество для российских товаров на общих основаниях.
+            Код не входит в приложения 1–3 — запретов и ограничений нет, действует преимущество для российских товаров на общих основаниях.{" "}
+            {result.npa_source_url && (
+              <Anchor href={result.npa_source_url} target="_blank" rel="noreferrer" size="sm">Текст постановления</Anchor>
+            )}
           </Text>
         ) : (
           <Stack gap={6}>

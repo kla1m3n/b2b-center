@@ -123,7 +123,7 @@ function verdictOf(matches: NpaMatch[]): Regime {
 export function classifySync(name: string): ClassificationResult {
   const norm = name.toLowerCase().replace(/ё/g, "е").trim();
   if (!/[a-zа-я]{2,}/.test(norm)) {
-    return { input: name, okpd2: null, alternatives: [], confidence: 0, needs_review: true, npa_matches: [], verdict: "none", explanation: "", error: "Пустое или нераспознанное наименование" };
+    return { input: name, okpd2: null, alternatives: [], confidence: 0, needs_review: true, npa_matches: [], verdict: "none", explanation: "", error: "Пустое или нераспознанное наименование", npa_source_url: "" };
   }
   const rule = RULES.find((r) => r.words.some((w) => norm.includes(w)));
   if (!rule) {
@@ -138,8 +138,9 @@ export function classifySync(name: string): ClassificationResult {
       needs_review: true,
       npa_matches: [],
       verdict: "none",
-      explanation: "Наиболее близкое наименование ОКПД2: «Изделия различные прочие, не включенные в другие группировки». Вердикт по ПП № 1875: не подпадает.",
+      explanation: "Наиболее близкое наименование ОКПД2: «Изделия различные прочие, не включенные в другие группировки». Вердикт по ПП № 1875: не подпадает. Код не входит в приложения 1–3 постановления: запрета и ограничения нет.",
       error: null,
+      npa_source_url: SOURCE_URL,
     };
   }
   const matches = matchItems(rule.code);
@@ -150,11 +151,13 @@ export function classifySync(name: string): ClassificationResult {
     okpd2: { code: rule.code, title: rule.title },
     alternatives: (rule.alternatives ?? []).map(([code, title, confidence]) => ({ code, title, confidence })),
     confidence: rule.confidence,
-    needs_review: rule.confidence < 0.6,
+    needs_review: rule.confidence < 0.8, // как needs_review_threshold на backend
     npa_matches: matches,
     verdict,
-    explanation: `Наиболее близкое наименование ОКПД2: «${rule.title}». Вердикт по ПП № 1875: ${labels[verdict]}.`,
+    explanation: `Наиболее близкое наименование ОКПД2: «${rule.title}». Вердикт по ПП № 1875: ${labels[verdict]}.`
+      + (matches.length ? "" : " Код не входит в приложения 1–3 постановления: запрета и ограничения нет."),
     error: null,
+    npa_source_url: SOURCE_URL,
   };
 }
 

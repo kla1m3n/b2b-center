@@ -43,6 +43,7 @@ export interface ClassificationResult {
   verdict: Regime;
   explanation: string;
   error: string | null;
+  npa_source_url: string; // текст действующей редакции ПП — есть и у «не подпадает»
 }
 
 export interface HealthOut {

@@ -95,7 +95,7 @@ def results_to_xlsx(results: Sequence[ClassificationResult]) -> bytes:
             r.okpd2.code if r.okpd2 else "",
             r.okpd2.title if r.okpd2 else "",
             REGIME_LABELS[r.verdict],
-            items or "—",
+            items or "не входит в прил. 1–3",
             math.floor(r.confidence * 100 + 1e-9),  # вниз, как на сайте: 0.7964 при пороге 80% — это 79%
             "да" if r.needs_review else "нет",
             r.error or r.explanation,

@@ -20,7 +20,7 @@ export function resultsToCsv(results: ClassificationResult[]): string {
       r.okpd2?.title ?? r.error ?? "",
       r.error ? "" : REGIME_LABELS[r.verdict],
       top ? top.appendix : "",
-      r.npa_matches.map((m) => `${m.appendix}:${m.item_no}`).join(", "),
+      r.error ? "" : r.npa_matches.map((m) => `${m.appendix}:${m.item_no}`).join(", ") || "не входит в прил. 1–3",
       r.error ? "" : confidencePct(r.confidence),
       r.needs_review ? "да" : "",
     ];

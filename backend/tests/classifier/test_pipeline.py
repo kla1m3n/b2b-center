@@ -85,3 +85,14 @@ def test_needs_review_recomputed_for_cached_results(pipeline):
     pipeline.s = pipeline.s.model_copy(update={"needs_review_threshold": 1.01})  # порог сменили после кэширования
     again = pipeline.classify_many(["Ноутбук HP ProBook 450 G9"])[0]  # этот ответ — из кэша
     assert again.confidence == first.confidence and again.needs_review
+
+
+
+@pytest.mark.models
+def test_every_result_links_to_npa_text(pipeline):
+    # и у результата с пунктами, и у «не подпадает» (пунктов нет) — ссылка на текст редакции ПП
+    with_items, without = pipeline.classify_many(["Ноутбук HP ProBook 450 G9", "asdf"])
+    assert with_items.npa_matches and with_items.npa_source_url == "https://example.org/pp1875"
+    assert without.npa_source_url == "https://example.org/pp1875"
+    if not without.npa_matches:
+        assert "не входит в приложения 1–3" in without.explanation

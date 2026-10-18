@@ -25,7 +25,7 @@ docker-compose up --build
 На публичном сервере задайте пароль в `.env` в корне репозитория — тогда на сайте появится поле пароля:
 
 ```
-ADMIN_TOKEN=придумайте-длинный-пароль
+ADMIN_TOKEN=change-me-to-a-long-random-password
 ```
 
 Пароль — **латиницей** (буквы, цифры, знаки): он передаётся в HTTP-заголовке, кириллицу браузер отправить не может.
@@ -35,6 +35,97 @@ ADMIN_TOKEN=придумайте-длинный-пароль
 
 ```bash
 docker compose run --rm -v ./backend:/app api pytest -q
+```
+
+## API — примеры запросов
+
+Базовый адрес — сайт `http://localhost:8080` (через nginx, как у пользователей) или `http://localhost:8000` (API напрямую).
+Все запросы можно попробовать без командной строки в Swagger: http://localhost:8000/docs.
+
+> Windows: используйте `curl.exe` и передавайте JSON с кириллицей из файла в UTF-8 (`--data-binary @query.json`) —
+> иначе консоль может отправить текст не в UTF-8, и API ответит «There was an error parsing the body».
+
+**Готовность сервиса**
+
+```bash
+curl http://localhost:8080/api/health
+# {"status":"ok","db":true,"models":true,"npa_version":"ПП РФ № 1875 от 23.12.2024 (ред. на 30 сентября 2026 года)","npa_upload_protected":false}
+```
+
+**Один товар** (синхронно, обычно < 0,5 с; пока модели загружаются — `503`)
+
+```bash
+curl -X POST http://localhost:8080/api/classify \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Бумага офисная А4"}'
+```
+
+Ответ (сокращён):
+
+```json
+{
+  "input": "Бумага офисная А4",
+  "okpd2": {"code": "17.12.14.110", "title": "Бумага для печати"},
+  "alternatives": [{"code": "17.23.12.110", "title": "Конверты, письма-секретки", "confidence": 0.1345}],
+  "confidence": 0.9709,
+  "needs_review": false,
+  "npa_matches": [
+    {"item_id": 1814, "regime": "ban", "appendix": 1, "item_no": "10", "title": "Бумага и картон",
+     "matched_code": "17.12", "quota": null, "has_conditions": false, "note": "",
+     "source_url": "https://docs.cntd.ru/document/1310667825"},
+    {"item_id": 2442, "regime": "advantage", "appendix": 3, "item_no": "13", "title": "Бумага и картон",
+     "matched_code": "17.12", "quota": 90, "has_conditions": false, "note": "",
+     "source_url": "https://docs.cntd.ru/document/1310667825"}
+  ],
+  "verdict": "ban",
+  "explanation": "Наиболее близкое наименование ОКПД2: «Бумага для печати» (совпадение по «бумага а4»). Вердикт по ПП № 1875: запрет.",
+  "error": null,
+  "npa_source_url": "https://docs.cntd.ru/document/1310667825"
+}
+```
+
+- `confidence` — вероятность верного вердикта (0…1); `needs_review: true`, если она ниже 0,8.
+- `verdict`: `ban` (запрет, прил. 1), `restriction` (ограничение, прил. 2), `advantage` (прил. 3), `none` (не входит в приложения).
+- `npa_matches` — все пункты ПП с текстом и ссылкой; `item_id` — для `GET /api/npa/items/{id}`.
+- `npa_source_url` — текст действующей редакции ПП; есть у любого результата, в том числе `none`.
+
+**Список до 100 товаров** — JSON или файл `.xlsx` / `.csv` / `.txt` (обработка в очереди, ответ `202`)
+
+```bash
+curl -X POST http://localhost:8080/api/classify/batch \
+  -H "Content-Type: application/json" \
+  -d '{"names": ["Ноутбук Lenovo IdeaPad 15", "Щебень гранитный", "Хлеб пшеничный"]}'
+# {"job_id":"8f0c…"}
+
+curl -X POST http://localhost:8080/api/classify/batch -F "file=@spec.xlsx"
+```
+
+Больше 100 товаров → `422 «Не более 100 товаров за один запрос»`. В файле можно оставить шапку, номера и количество —
+колонка с наименованиями находится автоматически.
+
+**Статус и результаты пакета, выгрузка в Excel**
+
+```bash
+curl http://localhost:8080/api/jobs/8f0c…
+# {"job_id":"8f0c…","status":"running","total":3,"done":2,"error":null,"results":null}
+# status: queued → running → done (results — массив, как у /api/classify) или failed (причина в error)
+
+curl -o results.xlsx http://localhost:8080/api/jobs/8f0c…/export.xlsx   # после status = done
+```
+
+**База НПА: редакции, пункт, загрузка новой редакции без перезапуска**
+
+```bash
+curl http://localhost:8080/api/npa/versions          # редакции, новые сверху: статус, число позиций, предупреждения
+curl http://localhost:8080/api/npa/items/1814        # пункт ПП: приложение, номер, текст, коды ОКПД2, доля, ссылка
+
+curl -X POST http://localhost:8080/api/npa/upload \
+  -H "X-Admin-Token: $ADMIN_TOKEN" \
+  -F "file=@pp1875.json" \
+  -F "title=ПП РФ № 1875 (ред. на …)" \
+  -F "source_url=https://…"
+# {"version_id":2} — разбор идёт в фоне; редакция станет активной, когда статус в /api/npa/versions будет ready.
+# Битый файл → статус failed, действующая редакция не меняется. Формат файла — docs/npa-structure.md.
 ```
 
 ## Как это работает

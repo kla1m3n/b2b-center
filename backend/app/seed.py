@@ -89,14 +89,17 @@ def _load_npa(session: Session, data: Path) -> None:
 
 
 def run(session: Session, reindex: bool = False) -> None:
-    """reindex=True — заново загрузить тексты поиска (после правки синонимов или смены индекса) и сбросить кэш."""
+    """reindex=True — заново загрузить тексты поиска (после правки синонимов или смены индекса). Кэш ответов сбрасывается всегда."""
     data = Path(get_settings().data_dir)
     session.execute(text("SELECT pg_advisory_lock(:k)"), {"k": SEED_LOCK})
     try:
         if reindex:
             session.execute(delete(Okpd2Text))
-            session.execute(delete(ClassificationCache))
             session.commit()
+        # Кэш ответов сбрасывается при каждом запуске: запуск — это и есть обновление кода, синонимов, калибровки.
+        # Иначе после обновления пользователи видят старые ответы (старая уверенность, старое пояснение).
+        session.execute(delete(ClassificationCache))
+        session.commit()
         if not session.scalar(select(func.count()).select_from(Okpd2Code)):
             _load_okpd2(session, data)
         if not session.scalar(select(func.count()).select_from(Okpd2Text)):

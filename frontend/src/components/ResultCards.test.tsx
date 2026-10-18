@@ -17,7 +17,8 @@ describe("ResultCards", () => {
 
   it("товар вне приложений и ошибка", () => {
     render(<ResultCards results={[classifySync("Хлеб"), classifySync("123")]} expanded={new Set()} onToggle={noop} onOpenItem={noop} />);
-    expect(screen.getByText("не входит в приложения 1–3")).toBeInTheDocument();
+    // «не подпадает»: пунктов нет, но есть ссылка на текст постановления
+    expect(screen.getByText("не входит в прил. 1–3").closest("a")).toHaveAttribute("href", "https://docs.cntd.ru/document/1310667825");
     expect(screen.getByText("Пустое или нераспознанное наименование")).toBeInTheDocument();
   });
 

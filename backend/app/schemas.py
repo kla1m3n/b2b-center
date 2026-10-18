@@ -53,6 +53,9 @@ class ClassificationResult(BaseModel):
     verdict: Regime = Regime.none
     explanation: str = ""
     error: str | None = None
+    # Текст действующей редакции ПП — ссылка есть у любого результата, в том числе «не подпадает»,
+    # где пунктов приложений нет (критерий ТЗ: «каждый результат содержит ссылку на НПА»)
+    npa_source_url: str = ""
 
 
 class HealthOut(BaseModel):

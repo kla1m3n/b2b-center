@@ -49,3 +49,19 @@ def test_reindex_replaces_search_texts_and_clears_cache(session, tmp_path, monke
     assert texts == ["Ноутбуки", "лэптоп"]
     assert session.query(ClassificationCache).count() == 0
     session.execute(text("SELECT 1"))
+
+
+
+def test_run_always_clears_answer_cache(session):
+    # кэш переживает перезапуск, а код/калибровка могли поменяться — при запуске он сбрасывается
+    from sqlalchemy import func, select
+    from sqlalchemy.dialects.postgresql import insert
+
+    from app.models import ClassificationCache
+    from app.seed import run
+
+    session.execute(insert(ClassificationCache).values(norm_name="старый ответ", npa_version=0, result={})
+                    .on_conflict_do_nothing())
+    session.commit()
+    run(session)
+    assert session.scalar(select(func.count()).select_from(ClassificationCache)) == 0

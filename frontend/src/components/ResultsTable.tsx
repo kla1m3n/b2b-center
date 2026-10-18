@@ -3,6 +3,7 @@ import { useMediaQuery } from "@mantine/hooks";
 import { Fragment, useState } from "react";
 import type { ClassificationResult } from "../types";
 import { ConfidenceCell } from "./ConfidenceCell";
+import { NotInAppendices } from "./NotInAppendices";
 import { NpaItemModal } from "./NpaItemModal";
 import { ResultCards } from "./ResultCards";
 import { RegimeBadge } from "./RegimeBadge";
@@ -87,7 +88,7 @@ export function ResultsTable({ results }: { results: ClassificationResult[] }) {
                               <Text size="sm">Прил. {top.appendix}, п. {top.item_no}</Text>
                             )
                           ) : (
-                            <Text size="sm" c="dimmed">—</Text>
+                            <NotInAppendices url={r.npa_source_url} />
                           )}
                           {r.npa_matches.length > 1 && (
                             <Text size="xs" c="dimmed">и ещё {r.npa_matches.length - 1}</Text>

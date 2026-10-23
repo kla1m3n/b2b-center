@@ -31,6 +31,40 @@ ADMIN_TOKEN=change-me-to-a-long-random-password
 Пароль — **латиницей** (буквы, цифры, знаки): он передаётся в HTTP-заголовке, кириллицу браузер отправить не может.
 Без `ADMIN_TOKEN` загрузка открыта (удобно для локальной проверки).
 
+### Дообученная модель поиска и ONNX
+
+По умолчанию поиск по смыслу работает на `intfloat/multilingual-e5-large`. Дообученная на закупках версия (ноутбук
+Kaggle, архив `artifacts.zip`) подключается настройками в `.env` — код менять не нужно:
+
+| Вариант | Что положить в `data/` | `.env` |
+|---|---|---|
+| PyTorch | `models/e5-large-pp1875/` | `EMBED_MODEL=/data/models/e5-large-pp1875` |
+| ONNX int8 (запрос в ~4 раза быстрее на CPU) | `models/e5-large-pp1875-onnx/` | `EMBED_MODEL=/data/models/e5-large-pp1875-onnx`<br>`EMBED_BACKEND=onnx` |
+
+Для маленькой модели `rubert-mini-frida-pp1875` ещё `EMBED_DIM=312`. Папка `data/models/` в git не попадает.
+
+Из `artifacts.zip/backend_data/` (если ноутбук написал «doc2query в экспорт вошёл»):
+- `okpd2_synonyms.csv` → `data/okpd2_synonyms.csv` — синонимы плюс формулировки заказчиков от LLM;
+- `index/data-models-e5-large-pp1875.npz` → `data/index/` — готовые эмбеддинги индекса (иначе бэкенд считает
+  их на CPU, для ~100 тыс. текстов это десятки минут). Для ONNX переименуйте в `data-models-e5-large-pp1875-onnx.npz`:
+  имя файла = `EMBED_MODEL` в нижнем регистре, всё кроме букв и цифр заменено на `-`.
+
+Затем перезагрузка текстов поиска, калибровка уверенности и замеры:
+
+```bash
+docker compose build
+docker compose run --rm -v ./backend:/app api python -m app.seed --reindex
+docker compose run --rm -v ./backend:/app -v ./reports:/reports api python scripts/eval.py --testset /data/eval/dev.csv --fit-confidence --out /reports/eval_dev_ft.md
+#  → строку CONFIDENCE_COEF=[a, b, c] из вывода записать в .env
+docker compose run --rm -v ./backend:/app -v ./reports:/reports api python scripts/eval.py --testset /data/eval/testset.csv --out /reports/eval_testset_ft.md
+docker compose run --rm -v ./backend:/app -v ./reports:/reports api python scripts/eval.py --testset /data/eval/stress.csv --out /reports/eval_stress_ft.md
+docker-compose up --build
+```
+
+Откат: удалить строки `EMBED_*` из `.env` и снова `app.seed --reindex`. Если папку модели сохранила более новая
+версия sentence-transformers, чем в образе, бэкенд загрузит её через transformers напрямую (в логе будет
+предупреждение) — результат тот же.
+
 Тесты:
 
 ```bash

@@ -42,5 +42,8 @@ def download(name: str) -> None:
 
 
 for model in [m for m in sys.argv[1:] if m] or [os.environ["EMBED_MODEL"]]:
+    if model.startswith(("/", "./", "../")):  # своя модель из папки (data/models) — подключается томом, не качается
+        print(f"{model}: локальная папка, скачивать не нужно", flush=True)
+        continue
     if not from_seed(model):
         download(model)

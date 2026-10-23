@@ -22,6 +22,8 @@ services:
       additional_contexts:  # локальные кэши для быстрой сборки; пустые папки — всё качается из интернета
         hfseed: ./.hf
         pipseed: ./wheels/cpu
+      args:  # модель берётся из .env; папка /data/models/... не качается, а подключается томом ./data
+        EMBED_MODEL: ${EMBED_MODEL:-intfloat/multilingual-e5-large}
     image: pp1875-backend
     restart: unless-stopped
     env_file:

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Okpd2Code, Okpd2Text
 
-OVERFETCH = 4  # у кода несколько текстов (наименование + синонимы) → берём с запасом
+OVERFETCH = 10  # у кода несколько текстов (наименование + синонимы + формулировки doc2query) → берём с запасом
 
 
 @dataclass

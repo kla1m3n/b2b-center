@@ -26,6 +26,13 @@ def model_slug(model_name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", model_name.lower()).strip("-")
 
 
+def index_name(model_name: str, backend: str) -> str:
+    """Имя файла индекса в data/index. У ONNX int8 векторы чуть другие, чем у той же модели в PyTorch,
+    поэтому индекс свой: intfloat-multilingual-e5-large-onnx.npz рядом с intfloat-multilingual-e5-large.npz."""
+    slug = model_slug(model_name)
+    return f"{slug}-onnx.npz" if backend == "onnx" and not slug.endswith("onnx") else f"{slug}.npz"
+
+
 def okpd2_texts(codes: Sequence[Okpd2Code], synonyms: Sequence[tuple[str, str]]) -> list[tuple[str, str, str]]:
     """Тексты для поиска: (code, text, kind) — официальные наименования кодов нижнего уровня и синонимы к ним.
 
@@ -55,7 +62,7 @@ def _load_okpd2(session: Session, data: Path) -> None:
 
 def _load_texts(session: Session, data: Path) -> None:
     s = get_settings()
-    index = data / "index" / f"{model_slug(s.embed_model)}.npz"
+    index = data / "index" / index_name(s.embed_model, s.embed_backend)
     if index.exists():
         z = np.load(index, allow_pickle=False)
         texts = list(zip(z["codes"].tolist(), z["texts"].tolist(), z["kinds"].tolist()))

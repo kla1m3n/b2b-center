@@ -26,7 +26,7 @@ RUN --mount=type=bind,from=pipseed,target=/pipseed \
 ENV PYTHONPATH=/app
 
 ARG EMBED_MODEL=intfloat/multilingual-e5-large
-ARG EMBED_BACKEND=torch
+ARG EMBED_BACKEND=onnx
 ARG EMBED_ONNX_FILE=
 COPY scripts/download_models.py scripts/
 # /seed — локальный кэш моделей (.hf в корне репозитория); если пуст, модель скачивается из интернета

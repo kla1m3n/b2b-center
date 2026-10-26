@@ -17,9 +17,10 @@ class Settings(BaseSettings):
     # Префиксы запроса/документа выбираются по имени («e5», «frida»), поэтому имя папки должно их содержать.
     embed_model: str = "intfloat/multilingual-e5-large"
     embed_dim: int = 1024  # 1024 у e5-large, 312 у rubert-mini-frida; при смене таблица векторов пересоздаётся
-    # torch — sentence-transformers (по умолчанию); onnx — ONNX Runtime по папке EMBED_MODEL (папка «…-onnx» из
-    # ноутбука). embed_onnx_file — путь к .onnx внутри папки; пусто — int8-файл из onnx/, иначе onnx/model.onnx
-    embed_backend: str = "torch"
+    # onnx (по умолчанию) — ONNX Runtime, int8-модель: у intfloat/multilingual-e5-large она есть в репозитории HF
+    # (onnx/model_qint8_avx512_vnni.onnx), при сборке качается только она; torch — sentence-transformers.
+    # embed_onnx_file — путь к .onnx внутри модели; пусто — int8-файл под процессор, иначе onnx/model.onnx
+    embed_backend: str = "onnx"
     embed_onnx_file: str = ""
     device: str = "cpu"
     retrieve_k: int = 20

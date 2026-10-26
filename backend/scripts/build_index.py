@@ -11,7 +11,7 @@ import numpy as np
 from app.classifier.embedder import Embedder
 from app.config import get_settings
 from app.models import Okpd2Code
-from app.seed import model_slug, okpd2_texts, read_synonyms
+from app.seed import index_name, okpd2_texts, read_synonyms
 
 
 def main() -> None:
@@ -26,7 +26,8 @@ def main() -> None:
                  for r in csv.DictReader(f, delimiter=";")]
     texts = okpd2_texts(codes, read_synonyms(a.data / "okpd2_synonyms.csv"))
     vecs = Embedder(a.model, s.device).encode_passages([t[1] for t in texts])
-    out = a.out or a.data / "index" / f"{model_slug(a.model)}.npz"
+    backend = s.embed_backend if a.model == s.embed_model else "torch"  # как в Embedder
+    out = a.out or a.data / "index" / index_name(a.model, backend)
     out.parent.mkdir(parents=True, exist_ok=True)
     np.savez_compressed(
         out,

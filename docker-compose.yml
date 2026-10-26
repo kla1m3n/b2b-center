@@ -24,7 +24,7 @@ services:
         pipseed: ./wheels/cpu
       args:  # модель берётся из .env; папка /data/models/... не качается, а подключается томом ./data
         EMBED_MODEL: ${EMBED_MODEL:-intfloat/multilingual-e5-large}
-        EMBED_BACKEND: ${EMBED_BACKEND:-torch}
+        EMBED_BACKEND: ${EMBED_BACKEND:-onnx}
         EMBED_ONNX_FILE: ${EMBED_ONNX_FILE:-}
     image: pp1875-backend
     restart: unless-stopped

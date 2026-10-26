@@ -33,12 +33,16 @@ ADMIN_TOKEN=change-me-to-a-long-random-password
 
 ### Дообученная модель поиска и ONNX
 
-По умолчанию поиск по смыслу работает на `intfloat/multilingual-e5-large`. Дообученная на закупках версия (ноутбук
-Kaggle, архив `artifacts.zip`) подключается настройками в `.env` — код менять не нужно:
+По умолчанию поиск по смыслу работает на `intfloat/multilingual-e5-large` через **ONNX Runtime, int8** — официальный
+файл `onnx/model_qint8_avx512_vnni.onnx` из репозитория модели на Hugging Face. При сборке качается только он
+(~560 МБ вместо 2,2 ГБ весов PyTorch), индекс к нему лежит в `data/index/intfloat-multilingual-e5-large-onnx.npz`.
+Дообученная на закупках версия (ноутбук Kaggle, архив `artifacts.zip`) подключается настройками в `.env` — код менять
+не нужно:
 
 | Вариант | Что положить в `data/` | `.env` |
 |---|---|---|
-| PyTorch | `models/e5-large-pp1875/` | `EMBED_MODEL=/data/models/e5-large-pp1875` |
+| Исходная e5-large на PyTorch | ничего | `EMBED_BACKEND=torch` |
+| PyTorch | `models/e5-large-pp1875/` | `EMBED_MODEL=/data/models/e5-large-pp1875`<br>`EMBED_BACKEND=torch` |
 | ONNX int8 (запрос в ~4 раза быстрее на CPU) | `models/e5-large-pp1875-onnx/` | `EMBED_MODEL=/data/models/e5-large-pp1875-onnx`<br>`EMBED_BACKEND=onnx` |
 | ONNX int8 с Hugging Face (для сборки на чистой машине) | ничего | `EMBED_MODEL=<логин>/e5-large-pp1875-onnx`<br>`EMBED_BACKEND=onnx` |
 
@@ -55,7 +59,7 @@ Kaggle, архив `artifacts.zip`) подключается настройка�
 - `okpd2_synonyms.csv` → `data/okpd2_synonyms.csv` — синонимы плюс формулировки заказчиков от LLM;
 - `index/data-models-e5-large-pp1875.npz` → `data/index/` — готовые эмбеддинги индекса (иначе бэкенд считает
   их на CPU, для ~100 тыс. текстов это десятки минут). Имя файла = `EMBED_MODEL` в нижнем регистре, всё кроме букв и
-  цифр заменено на `-`.
+  цифр заменено на `-`; при `EMBED_BACKEND=onnx` в конце `-onnx` (если его ещё нет в имени).
 
 Индекс для ONNX лучше построить той же int8-моделью (16 тыс. текстов — ~20 мин на CPU), тогда запрос и индекс
 считаются одинаково:
@@ -73,7 +77,7 @@ docker compose run --rm -v ./backend:/app -v ./reports:/reports api python scrip
 docker-compose up --build
 ```
 
-Откат: удалить строки `EMBED_*` из `.env` и снова `app.seed --reindex`. Если папку модели сохранила более новая
+Откат: удалить строки `EMBED_*` из `.env`, `docker compose build` и снова `app.seed --reindex`. Если папку модели сохранила более новая
 версия sentence-transformers, чем в образе, бэкенд загрузит её через transformers напрямую (в логе будет
 предупреждение) — результат тот же.
 

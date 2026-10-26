@@ -5,7 +5,7 @@
       python scripts/compare_models.py --embed intfloat/multilingual-e5-base deepvk/USER-bge-m3
 
 Метрики: recall@k — эталонный код (до его уровня) среди k первых кандидатов (только коды нижнего уровня);
-(реранкер bge-reranker-v2-m3 проверен и убран: ухудшал top-1 — reports/rerank10.md, rerank20.md).
+(реранкер bge-reranker-v2-m3 проверен и убран: ухудшал top-1 — reports/archive/rerank10.md, rerank20.md).
 """
 import argparse
 import csv

@@ -71,7 +71,7 @@ services:
     build:
       context: ./frontend
       args:
-        # VITE_USE_MOCKS=true docker compose up --build — сайт на заглушках, пока на backend нет API
+        # VITE_USE_MOCKS=true docker compose up --build web — сайт на заглушках, без backend
         VITE_USE_MOCKS: ${VITE_USE_MOCKS:-false}
     image: pp1875-web
     restart: unless-stopped

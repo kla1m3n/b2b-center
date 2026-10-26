@@ -1,6 +1,6 @@
 // Выгрузка результатов в CSV, который Excel открывает без мастера импорта (UTF-8 с BOM, разделитель «;»).
-// Колонки как у backend-экспорта .xlsx (план, задача 8). Нужна, пока нет /api/jobs/{id}/export.xlsx
-// и для одиночной проверки, у которой нет задачи на backend.
+// Колонки как у backend-экспорта .xlsx. Нужна для одиночной проверки (у неё нет задачи на backend,
+// значит нет /api/jobs/{id}/export.xlsx) и в режиме заглушек.
 import { REGIME_LABELS, type ClassificationResult } from "./types";
 import { confidencePct } from "./confidence";
 

@@ -20,19 +20,17 @@ npm run build      # проверка типов + сборка в dist/
 
 Из корня репозитория: `docker compose up --build` → сайт на **http://localhost:8080** (сервис `web`: сборка → nginx).
 - nginx раздаёт SPA и проксирует `/api/` в `api:8000`; порт API наружу закрыт (`127.0.0.1:8000` — только Swagger на этом компьютере).
-- Пока на backend нет API классификации, можно собрать сайт на заглушках: `VITE_USE_MOCKS=true docker compose up --build web`.
+- Сайт без backend (на заглушках, например для показа вёрстки): `VITE_USE_MOCKS=true docker compose up --build web`.
 - В рабочей сборке заглушки вырезаются целиком (проверено: в бандле нет `mocks.ts`).
 - Лимиты в `nginx.conf`: 10 запросов/с на API с одного адреса, пакет и загрузка НПА — 6 в минуту; файлы до 20 МБ; ответ API ждём до 300 с.
 - Если сайт откроют через туннель (Cloudflare и т.п.), nginx видит адрес туннеля, а не пользователя — лимиты станут общими; настроить `real_ip` под туннель.
-
-> Образ пока **не собирался в Docker** (на машине разработчика фронта его нет): проверена только сборка `npm ci && npm run build` в чистой копии и разбор `docker-compose.yml`. Первый `docker compose up --build` — на сервере или у backend-разработчика.
 
 ## Заглушки и контракт с backend
 
 В `npm run dev` все вызовы идут в `src/mocks.ts` (`VITE_USE_MOCKS=true` в `.env.development`; в тестах — через `vite.config.ts`).
 Заглушки отвечают по ключевым словам (ноутбук, бумага, щебень, халат, тумба, катетер, программа, лифт, хлеб) реальными позициями ПП из `data/npa/pp1875.json` в том же формате, что backend; незнакомый товар даёт низкую уверенность.
 
-Типы в `src/types.ts` повторяют `backend/app/schemas.py` и модели ответов в `backend/app/api/*.py`. Все эндпоинты уже есть в `main` (коммиты b726070, 14bedbe):
+Типы в `src/types.ts` повторяют `backend/app/schemas.py` и модели ответов в `backend/app/api/*.py`:
 
 | Вызов | Эндпоинт |
 |---|---|
@@ -49,8 +47,4 @@ npm run build      # проверка типов + сборка в dist/
 
 **Пароль на загрузку НПА:** если на сервере задан `ADMIN_TOKEN`, `/api/health` отдаёт `npa_upload_protected: true` — страница «База НПА» показывает поле пароля и шлёт его в заголовке `X-Admin-Token`. В заглушках пароль — `1875`.
 
-Одиночная проверка (`/api/classify`) не создаёт задачу, поэтому её выгрузка — CSV из браузера (`src/exportCsv.ts`, те же колонки, что в Excel backend).
-
-## Что дальше
-- Проверить `docker compose up --build` на сервере: сайт на :8080, `/api/health` через nginx.
-- Проверить с реальным backend: `npm run dev:api` (backend на :8000) или `docker compose up --build` → :8080.
+Выгрузка: у пакета — «Скачать Excel» с backend (`/api/jobs/{id}/export.xlsx`); одиночная проверка (`/api/classify`) задачу не создаёт, поэтому её выгрузка — CSV из браузера (`src/exportCsv.ts`, те же колонки, что в Excel backend).

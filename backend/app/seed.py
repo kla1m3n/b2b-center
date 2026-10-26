@@ -36,7 +36,7 @@ def index_name(model_name: str, backend: str) -> str:
 def okpd2_texts(codes: Sequence[Okpd2Code], synonyms: Sequence[tuple[str, str]]) -> list[tuple[str, str, str]]:
     """Тексты для поиска: (code, text, kind) — официальные наименования кодов нижнего уровня и синонимы к ним.
 
-    Дописывание наименований родительских групп ухудшало поиск (reports/models.md), поэтому только чистые названия.
+    Дописывание наименований родительских групп ухудшало поиск (reports/archive/models.md), поэтому только чистые названия.
     """
     leaf = {c.code for c in codes if c.is_leaf}
     out = [(c.code, c.title, "official") for c in codes if c.code in leaf]

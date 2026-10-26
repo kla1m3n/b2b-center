@@ -33,15 +33,16 @@ ADMIN_TOKEN=change-me-to-a-long-random-password
 
 ### Дообученная модель поиска и ONNX
 
-По умолчанию поиск по смыслу работает на `intfloat/multilingual-e5-large` через **ONNX Runtime, int8** — официальный
-файл `onnx/model_qint8_avx512_vnni.onnx` из репозитория модели на Hugging Face. При сборке качается только он
-(~560 МБ вместо 2,2 ГБ весов PyTorch), индекс к нему лежит в `data/index/intfloat-multilingual-e5-large-onnx.npz`.
-Дообученная на закупках версия (ноутбук Kaggle, архив `artifacts.zip`) подключается настройками в `.env` — код менять
-не нужно:
+По умолчанию поиск по смыслу работает на **`BOBUS2317/e5-large-pp1875-onnx`** — `multilingual-e5-large`, дообученная
+на закупках (ноутбук Kaggle), в **ONNX Runtime, int8 под AVX2** (`onnx/model_quint8_avx2.onnx`, любой современный x86).
+При сборке с Hugging Face качается только этот файл и токенизатор (~560 МБ вместо 2,2 ГБ весов PyTorch), индекс к нему
+лежит в `data/index/bobus2317-e5-large-pp1875-onnx.npz`, калибровка уверенности подобрана под неё
+(`reports/eval_*_ft_avx2.md`). Другие варианты подключаются настройками в `.env` — код менять не нужно:
 
 | Вариант | Что положить в `data/` | `.env` |
 |---|---|---|
-| Исходная e5-large на PyTorch | ничего | `EMBED_BACKEND=torch` |
+| Исходная e5-large, ONNX int8 (официальный файл) | ничего | `EMBED_MODEL=intfloat/multilingual-e5-large`<br>`CONFIDENCE_COEF=[11.055, 58.809, -8.864]` |
+| Исходная e5-large на PyTorch | ничего | `EMBED_MODEL=intfloat/multilingual-e5-large`<br>`EMBED_BACKEND=torch`<br>`CONFIDENCE_COEF=[11.055, 58.809, -8.864]` |
 | PyTorch | `models/e5-large-pp1875/` | `EMBED_MODEL=/data/models/e5-large-pp1875`<br>`EMBED_BACKEND=torch` |
 | ONNX int8 (запрос в ~4 раза быстрее на CPU) | `models/e5-large-pp1875-onnx/` | `EMBED_MODEL=/data/models/e5-large-pp1875-onnx`<br>`EMBED_BACKEND=onnx` |
 | ONNX int8 с Hugging Face (для сборки на чистой машине) | ничего | `EMBED_MODEL=<логин>/e5-large-pp1875-onnx`<br>`EMBED_BACKEND=onnx` |

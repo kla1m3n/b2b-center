@@ -42,6 +42,9 @@ NOT_MEDICAL = re.compile(r"\(?\s*не является медицинским и
 # а без неё терялась сфера (стеллаж медицинский → спички). Переносим её в начало как подсказку о сфере.
 MEDICAL = re.compile(r"\(?\s*является медицинским изделием\s*\)?", re.IGNORECASE)
 BOILERPLATE = re.compile(r"\(?\s*(или аналоги|или эквиваленты|или аналог|или эквивалент)\s*\)?", re.IGNORECASE)
+# «Поставка товара: Автомобиль легковой» — слово «поставка» уводило поиск в «Услуги по торговле автомобилями»,
+# и правило «товары выше услуг» не срабатывало: среди кандидатов не оставалось ни одного товара. Только в начале.
+LEADING_PURCHASE = re.compile(r"^\s*(?:поставка|закупка|приобретение)(?:\s+товар(?:а|ов))?\s*[:\-–—]?\s+")
 _quantity_re = re.compile(rf"\b\d+\s*(?:{UNITS})\b\.?")
 _unit_re = re.compile(rf"\b(?:{UNITS})\b\.?")
 _token_re = re.compile(r"[a-zа-я0-9]+(?:[-/.][a-zа-я0-9]+)*")
@@ -54,6 +57,7 @@ def _is_article(token: str) -> bool:
 
 def normalize(name: str) -> str:
     s = BOILERPLATE.sub(" ", NOT_MEDICAL.sub(" ", name.lower().replace("ё", "е")))
+    s = LEADING_PURCHASE.sub("", s)
     if MEDICAL.search(s):
         s = "медицинское изделие " + MEDICAL.sub(" ", s)
     s = _quantity_re.sub(" ", s)

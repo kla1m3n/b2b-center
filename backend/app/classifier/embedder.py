@@ -31,6 +31,17 @@ def _read_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
 
 
+def pooling_mode(cfg: dict) -> str:
+    """Пулинг из 1_Pooling/config.json в обоих форматах sentence-transformers: старый
+    {"pooling_mode_cls_token": true, ...} и новый (5.x) {"pooling_mode": "cls"}. Поддерживаются cls и mean."""
+    mode = cfg.get("pooling_mode")
+    if mode is None:
+        mode = "cls" if cfg.get("pooling_mode_cls_token") else "mean"
+    if mode not in ("cls", "mean"):
+        raise ValueError(f"Пулинг {mode!r} не поддерживается (нужен cls или mean)")
+    return mode
+
+
 def _cpu_flags() -> set[str]:
     try:
         return set(Path("/proc/cpuinfo").read_text().split())
@@ -79,8 +90,7 @@ class _Pooled:
 
         self.dir = model_dir
         self.max_len = int(_read_json(model_dir / "sentence_bert_config.json").get("max_seq_length", 512))
-        pool = _read_json(model_dir / "1_Pooling" / "config.json")
-        self.pooling = "cls" if pool.get("pooling_mode_cls_token") else "mean"
+        self.pooling = pooling_mode(_read_json(model_dir / "1_Pooling" / "config.json"))
         tok = Tokenizer.from_file(str(model_dir / "tokenizer.json"))
         tc = _read_json(model_dir / "tokenizer_config.json")
         pad = tc.get("pad_token") if isinstance(tc.get("pad_token"), str) else None

@@ -25,7 +25,7 @@ RUN --mount=type=bind,from=pipseed,target=/pipseed \
     && pip uninstall -y pp1875-classifier && rm -rf app
 ENV PYTHONPATH=/app
 
-ARG EMBED_MODEL=intfloat/multilingual-e5-large
+ARG EMBED_MODEL=BOBUS2317/e5-large-pp1875-onnx
 ARG EMBED_BACKEND=onnx
 ARG EMBED_ONNX_FILE=
 COPY scripts/download_models.py scripts/

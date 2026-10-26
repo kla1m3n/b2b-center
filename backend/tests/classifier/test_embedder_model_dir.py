@@ -1,9 +1,20 @@
+from pathlib import Path
+
 import huggingface_hub.constants as hf_constants
 import pytest
 
-from pathlib import Path
+from app.classifier.embedder import _model_dir, pick_onnx_file, pooling_mode
 
-from app.classifier.embedder import _model_dir, pick_onnx_file
+
+def test_pooling_config_old_and_new_formats():
+    assert pooling_mode({"word_embedding_dimension": 1024, "pooling_mode_cls_token": False,
+                         "pooling_mode_mean_tokens": True}) == "mean"          # sentence-transformers 3.x
+    assert pooling_mode({"pooling_mode_cls_token": True}) == "cls"
+    assert pooling_mode({"embedding_dimension": 1024, "pooling_mode": "mean", "include_prompt": True}) == "mean"  # 5.x
+    assert pooling_mode({"pooling_mode": "cls"}) == "cls"
+    assert pooling_mode({}) == "mean"
+    with pytest.raises(ValueError):
+        pooling_mode({"pooling_mode": "max"})
 
 ST_EXPORT = [Path(f"onnx/{n}.onnx") for n in ("model", "model_qint8_arm64", "model_qint8_avx512",
                                                 "model_qint8_avx512_vnni", "model_quint8_avx2")]

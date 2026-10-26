@@ -4,7 +4,8 @@
 Пользователь вводит наименование товара (или список до 100) → система определяет код ОКПД2,
 режим по ПП РФ № 1875 (запрет / ограничение / преимущество / не подпадает), пункт постановления и уверенность модели.
 
-> Статус: в разработке. Готовы данные, БД, сверка с ПП, ИИ-конвейер, API и сайт. Дальше — документация, видео.
+> Статус: готовы данные, БД, сверка с ПП (ред. на 30.09.2026), ИИ-конвейер с дообученной моделью поиска, API и сайт.
+> Дальше — финальный замер на `holdout`, документация, видео.
 
 ## Запуск
 
@@ -14,7 +15,7 @@
 docker-compose up --build
 ```
 
-Первая сборка долгая (качаются модели ИИ, несколько ГБ). После старта:
+Первая сборка — 5–10 минут: качаются зависимости и модель поиска с Hugging Face (~560 МБ). После старта:
 - **сайт: http://localhost:8080** (пока модели грузятся — баннер «Система запускается», ~1 мин)
 - проверка готовности: http://localhost:8000/api/health (ждать `"status": "ok"`)
 - документация API: http://localhost:8000/docs (порт 8000 открыт только на этом компьютере)
@@ -31,62 +32,81 @@ ADMIN_TOKEN=change-me-to-a-long-random-password
 Пароль — **латиницей** (буквы, цифры, знаки): он передаётся в HTTP-заголовке, кириллицу браузер отправить не может.
 Без `ADMIN_TOKEN` загрузка открыта (удобно для локальной проверки).
 
-### Дообученная модель поиска и ONNX
-
-По умолчанию поиск по смыслу работает на **`BOBUS2317/e5-large-pp1875-onnx`** — `multilingual-e5-large`, дообученная
-на закупках (ноутбук Kaggle), в **ONNX Runtime, int8 под AVX2** (`onnx/model_quint8_avx2.onnx`, любой современный x86).
-При сборке с Hugging Face качается только этот файл и токенизатор (~560 МБ вместо 2,2 ГБ весов PyTorch), индекс к нему
-лежит в `data/index/bobus2317-e5-large-pp1875-onnx.npz`, калибровка уверенности подобрана под неё
-(`reports/eval_*_ft_avx2.md`). Другие варианты подключаются настройками в `.env` — код менять не нужно:
-
-| Вариант | Что положить в `data/` | `.env` |
-|---|---|---|
-| Исходная e5-large, ONNX int8 (официальный файл) | ничего | `EMBED_MODEL=intfloat/multilingual-e5-large`<br>`CONFIDENCE_COEF=[11.055, 58.809, -8.864]` |
-| Исходная e5-large на PyTorch | ничего | `EMBED_MODEL=intfloat/multilingual-e5-large`<br>`EMBED_BACKEND=torch`<br>`CONFIDENCE_COEF=[11.055, 58.809, -8.864]` |
-| PyTorch | `models/e5-large-pp1875/` | `EMBED_MODEL=/data/models/e5-large-pp1875`<br>`EMBED_BACKEND=torch` |
-| ONNX int8 (запрос в ~4 раза быстрее на CPU) | `models/e5-large-pp1875-onnx/` | `EMBED_MODEL=/data/models/e5-large-pp1875-onnx`<br>`EMBED_BACKEND=onnx` |
-| ONNX int8 с Hugging Face (для сборки на чистой машине) | ничего | `EMBED_MODEL=<логин>/e5-large-pp1875-onnx`<br>`EMBED_BACKEND=onnx` |
-
-Для маленькой модели `rubert-mini-frida-pp1875` ещё `EMBED_DIM=312`. Папка `data/models/` в git не попадает.
-
-**ONNX с Hugging Face.** `docker compose build` передаёт `EMBED_MODEL` и `EMBED_BACKEND` в сборку, и
-`scripts/download_models.py` кладёт в образ только файл ONNX, токенизатор и конфиги (без весов PyTorch). В репозитории
-на HF — содержимое папки `e5-large-pp1875-onnx/` из архива, файл модели в `onnx/`. Если там несколько int8-файлов
-(`…_avx2`, `…_avx512_vnni`, `…_arm64`), бэкенд сам берёт подходящий процессору; конкретный задаётся
-`EMBED_ONNX_FILE=onnx/<файл>.onnx`. Квантование под `avx512_vnni` работает и на процессорах без AVX-512, но медленнее —
-для чужих машин надёжнее `avx2`.
-
-Из `artifacts.zip/backend_data/` (если ноутбук написал «doc2query в экспорт вошёл»):
-- `okpd2_synonyms.csv` → `data/okpd2_synonyms.csv` — синонимы плюс формулировки заказчиков от LLM;
-- `index/data-models-e5-large-pp1875.npz` → `data/index/` — готовые эмбеддинги индекса (иначе бэкенд считает
-  их на CPU, для ~100 тыс. текстов это десятки минут). Имя файла = `EMBED_MODEL` в нижнем регистре, всё кроме букв и
-  цифр заменено на `-`; при `EMBED_BACKEND=onnx` в конце `-onnx` (если его ещё нет в имени).
-
-Индекс для ONNX лучше построить той же int8-моделью (16 тыс. текстов — ~20 мин на CPU), тогда запрос и индекс
-считаются одинаково:
-`docker compose run --rm -v ./backend:/app -v ./data:/datarw api python scripts/build_index.py --data /datarw --model <EMBED_MODEL>`.
-
-Затем перезагрузка текстов поиска, калибровка уверенности и замеры:
+### Тесты
 
 ```bash
-docker compose build
+docker compose run --rm -v ./backend:/app api pytest -q     # 88 тестов, ~2–3 мин
+```
+
+## Модель поиска
+
+По умолчанию поиск по смыслу работает на
+**[`BOBUS2317/e5-large-pp1875-onnx`](https://huggingface.co/BOBUS2317/e5-large-pp1875-onnx)** — это
+`intfloat/multilingual-e5-large`, **дообученная на наименованиях из госзакупок** (пары «наименование → код ОКПД2»:
+КТРУ, синонимы, наименования кодов, синтетика LLM), в **ONNX Runtime, int8 под AVX2**.
+
+- **Без GPU и без настройки.** `docker-compose up --build` скачивает с Hugging Face только файл
+  `onnx/model_quint8_avx2.onnx` и токенизатор (~560 МБ вместо 2,2 ГБ весов PyTorch). Квантование AVX2 работает на
+  любом современном x86-процессоре.
+- **Готовый индекс** — `data/index/bobus2317-e5-large-pp1875-onnx.npz` (16 065 текстов: наименования кодов нижнего
+  уровня и синонимы). Первый запуск не считает эмбеддинги на CPU.
+- **Калибровка уверенности** подобрана под эту модель на `dev` (`confidence_coef` в `backend/app/config.py`).
+
+### Точность и скорость
+
+Замер `scripts/eval.py` на CPU, отчёты — `reports/eval_*_ft_avx2.md`. Для сравнения — исходная e5-large в том же
+конвейере (`reports/eval_*_onnx.md`).
+
+| Набор | Вердикт по ПП 1875 | Код ОКПД2 top-1 | Исходная e5-large: вердикт / код |
+|---|---|---|---|
+| `dev` — 88 реальных закупок | **87,5%** | **63,6%** | 90,9% / 54,5% |
+| `testset` — 32 чистых наименования | **100%** | **96,9%** | 100% / 100% |
+| `stress` — 192 искажения (опечатки, артикулы, шаблоны ЕИС) | **100%** | **96,9%** | 100% / 99,0% |
+
+- Дообученная модель заметно точнее находит **код** (dev: +9 пунктов top-1, +8 top-3). Вердикт на dev ниже на 3 товара:
+  в большинстве этих случаев исходная модель угадывала вердикт с неверным кодом (медизделия, где заказчики сами ставят
+  разные коды на похожие товары).
+- Уверенность честная: при 80–100% вердикт верен в 96% случаев (dev), ниже 80% — пометка «Проверьте вручную».
+- Скорость через API: **1 товар — ~0,23 с** (медиана), **100 товаров — ~15 с**. Требования ТЗ: < 5 с и < 2 мин.
+
+### Другая модель
+
+Модель меняется настройками в `.env` в корне репозитория — код менять не нужно:
+
+| Вариант | `.env` |
+|---|---|
+| По умолчанию — дообученная, ONNX int8 | — |
+| Исходная e5-large, ONNX int8 (официальный файл intfloat) | `EMBED_MODEL=intfloat/multilingual-e5-large`<br>`CONFIDENCE_COEF=[11.055, 58.809, -8.864]` |
+| Исходная e5-large на PyTorch | `EMBED_MODEL=intfloat/multilingual-e5-large`<br>`EMBED_BACKEND=torch`<br>`CONFIDENCE_COEF=[11.055, 58.809, -8.864]` |
+| Своя модель из папки `data/models/<имя>/` (в git не попадает) | `EMBED_MODEL=/data/models/<имя>`<br>`EMBED_BACKEND=onnx` или `torch` |
+| Своя модель на Hugging Face | `EMBED_MODEL=<логин>/<имя>`<br>`EMBED_BACKEND=onnx` |
+
+- Имя модели должно содержать `e5` или `frida`: по нему выбираются префиксы запроса и документа. Для
+  `rubert-mini-frida` ещё `EMBED_DIM=312`.
+- **ONNX:** в модели нужен файл `onnx/*.onnx`. Если int8-файлов несколько (`…_avx2`, `…_avx512_vnni`, `…_arm64`),
+  берётся подходящий процессору; конкретный — `EMBED_ONNX_FILE=onnx/<файл>.onnx`. Пулинг читается из
+  `1_Pooling/config.json` в форматах sentence-transformers 3.x и 5.x.
+- **Индекс:** `data/index/<EMBED_MODEL в нижнем регистре, не буквы и не цифры → «-»>.npz`, у ONNX в конце `-onnx`.
+  Если файла нет, бэкенд посчитает эмбеддинги при первом запуске (~15–20 мин на CPU).
+
+Подключить новую модель (после правки `.env`):
+
+```bash
+docker compose build                                         # скачает модель с Hugging Face
+docker compose up -d db redis
+docker compose run --rm -v ./backend:/app -v ./data:/datarw api python scripts/build_index.py --data /datarw
 docker compose run --rm -v ./backend:/app api python -m app.seed --reindex
-docker compose run --rm -v ./backend:/app -v ./reports:/reports api python scripts/eval.py --testset /data/eval/dev.csv --fit-confidence --out /reports/eval_dev_ft.md
+docker compose run --rm -v ./backend:/app -v ./reports:/reports api python scripts/eval.py --testset /data/eval/dev.csv --fit-confidence --out /reports/eval_dev_new.md
 #  → строку CONFIDENCE_COEF=[a, b, c] из вывода записать в .env
-docker compose run --rm -v ./backend:/app -v ./reports:/reports api python scripts/eval.py --testset /data/eval/testset.csv --out /reports/eval_testset_ft.md
-docker compose run --rm -v ./backend:/app -v ./reports:/reports api python scripts/eval.py --testset /data/eval/stress.csv --out /reports/eval_stress_ft.md
+docker compose run --rm -v ./backend:/app -v ./reports:/reports api python scripts/eval.py --testset /data/eval/testset.csv --out /reports/eval_testset_new.md
+docker compose run --rm -v ./backend:/app -v ./reports:/reports api python scripts/eval.py --testset /data/eval/stress.csv --out /reports/eval_stress_new.md
 docker-compose up --build
 ```
 
-Откат: удалить строки `EMBED_*` из `.env`, `docker compose build` и снова `app.seed --reindex`. Если папку модели сохранила более новая
-версия sentence-transformers, чем в образе, бэкенд загрузит её через transformers напрямую (в логе будет
-предупреждение) — результат тот же.
+Откат — удалить строки `EMBED_*` и `CONFIDENCE_COEF` из `.env`, `docker compose build` и снова `app.seed --reindex`.
 
-Тесты:
-
-```bash
-docker compose run --rm -v ./backend:/app api pytest -q
-```
+Модель обучается ноутбуком в Kaggle (пакет `pp1875_task2`), экспорт — `artifacts.zip`: папка модели и её ONNX-версия.
+Формулировки doc2query из архива **не подключаем**: на тестовых наборах с ними вердикт хуже.
 
 ## API — примеры запросов
 
@@ -117,19 +137,19 @@ curl -X POST http://localhost:8080/api/classify \
 {
   "input": "Бумага офисная А4",
   "okpd2": {"code": "17.12.14.110", "title": "Бумага для печати"},
-  "alternatives": [{"code": "17.23.12.110", "title": "Конверты, письма-секретки", "confidence": 0.1345}],
-  "confidence": 0.9709,
+  "alternatives": [{"code": "17.12.14.119", "title": "Бумага для печати прочая", "confidence": 0.7942}],
+  "confidence": 0.8933,
   "needs_review": false,
   "npa_matches": [
-    {"item_id": 1814, "regime": "ban", "appendix": 1, "item_no": "10", "title": "Бумага и картон",
+    {"item_id": 10, "regime": "ban", "appendix": 1, "item_no": "10", "title": "Бумага и картон",
      "matched_code": "17.12", "quota": null, "has_conditions": false, "note": "",
      "source_url": "https://docs.cntd.ru/document/1310667825"},
-    {"item_id": 2442, "regime": "advantage", "appendix": 3, "item_no": "13", "title": "Бумага и картон",
+    {"item_id": 663, "regime": "advantage", "appendix": 3, "item_no": "13", "title": "Бумага и картон",
      "matched_code": "17.12", "quota": 90, "has_conditions": false, "note": "",
      "source_url": "https://docs.cntd.ru/document/1310667825"}
   ],
   "verdict": "ban",
-  "explanation": "Наиболее близкое наименование ОКПД2: «Бумага для печати» (совпадение по «бумага а4»). Вердикт по ПП № 1875: запрет.",
+  "explanation": "Наиболее близкое наименование ОКПД2: «Бумага для печати» (совпадение по «бумага офисная»). Вердикт по ПП № 1875: запрет.",
   "error": null,
   "npa_source_url": "https://docs.cntd.ru/document/1310667825"
 }
@@ -168,7 +188,7 @@ curl -o results.xlsx http://localhost:8080/api/jobs/8f0c…/export.xlsx   # по
 
 ```bash
 curl http://localhost:8080/api/npa/versions          # редакции, новые сверху: статус, число позиций, предупреждения
-curl http://localhost:8080/api/npa/items/1814        # пункт ПП: приложение, номер, текст, коды ОКПД2, доля, ссылка
+curl http://localhost:8080/api/npa/items/10          # пункт ПП: приложение, номер, текст, коды ОКПД2, доля, ссылка
 
 curl -X POST http://localhost:8080/api/npa/upload \
   -H "X-Admin-Token: $ADMIN_TOKEN" \
@@ -181,10 +201,20 @@ curl -X POST http://localhost:8080/api/npa/upload \
 
 ## Как это работает
 
-1. **Нормализация** названия (убираем артикулы, «шт», раскрываем «мфу», «ноут»…).
-2. **Поиск по смыслу**: модель эмбеддингов сравнивает товар с ~21 тыс. наименований ОКПД2 и синонимами (pgvector).
-3. **Сверка с ПП 1875** обычным кодом, без ИИ: иерархия ОКПД2 по цифрам (`26.20.1` включает `26.20.11`).
-4. **Ответ**: код, режим, пункты приложений, уверенность, альтернативы.
+1. **Нормализация** названия: убираем артикулы, количество, шаблоны ЕИС («Поставка товара:», «(или эквивалент)»),
+   раскрываем сокращения («мфу», «ноут», «ДСП»), пометку «является медицинским изделием» переносим в начало как
+   подсказку о сфере.
+2. **Исправление опечаток** по словарю наименований ОКПД2 и синонимов («Телвеизор» → «телевизор», «пилта» → «плита»).
+3. **Поиск кода ОКПД2** среди 15 432 кодов нижнего уровня и 633 синонимов:
+   - по смыслу — дообученная модель эмбеддингов (ONNX int8) в pgvector;
+   - по словам — BM25 с русским стеммингом;
+   - объединение двух списков по рангам (RRF); при равной оценке выше код, чьё официальное наименование ближе к
+     запросу, — ответ не зависит от порядка строк в БД.
+4. **Правила поверх поиска**: товары выше услуг, если в наименовании нет признаков услуги; для медизделий — сначала
+   медицинские разделы ОКПД2.
+5. **Сверка с ПП 1875** обычным кодом, без ИИ: иерархия ОКПД2 по цифрам (`26.20.1` включает `26.20.11`, категория
+   `XX.XX.XX.XX0` — свои подкатегории), исключения, подпункты вида `122(1)`.
+6. **Ответ**: код, режим, пункты приложений со ссылкой на текст ПП, калиброванная уверенность, альтернативы.
 
 ## Где что лежит
 
@@ -193,14 +223,16 @@ curl -X POST http://localhost:8080/api/npa/upload \
 | `docs/superpowers/specs/` | дизайн (что и зачем делаем) |
 | `docs/superpowers/plans/` | план реализации по задачам |
 | `docs/npa-structure.md` | как устроено ПП 1875, источники данных |
-| `data/okpd2.csv`, `data/npa/pp1875.json` | справочник ОКПД2 и ПП 1875 (ред. на 30.09.2026) |
+| `data/okpd2.csv` | справочник ОКПД2 (21 081 код) |
+| `data/npa/pp1875.csv`, `data/npa/pp1875.json` | ПП 1875, ред. на 30.09.2026: сверенная таблица и база для бэкенда (`scripts/build_npa_json.py`) |
 | `data/okpd2_synonyms.csv` | бытовые названия для ходовых кодов |
+| `data/index/` | готовые эмбеддинги текстов поиска для моделей (`*.npz`) |
 | `data/eval/` | тестовые наборы: `dev.csv` — для настройки, `holdout.csv` — **не смотреть до финального замера** |
-| `backend/app/classifier/` | ИИ-конвейер (`matcher.py` — сверка с законом) |
+| `backend/app/classifier/` | ИИ-конвейер: `embedder.py` (модель, ONNX), `retriever.py` + `lexical.py` (поиск), `normalize.py`, `spell.py`, `rerank.py`, `matcher.py` (сверка с законом) |
 | `backend/app/api/` | REST API: классификация, пакеты, Excel, база НПА |
 | `frontend/` | сайт (React + Vite, nginx) — см. `frontend/README.md` |
-| `backend/scripts/` | загрузка данных, индекс, оценка точности (`eval.py`), замер скорости (`bench.py`) |
-| `reports/` | результаты замеров |
+| `backend/scripts/` | загрузка моделей (`download_models.py`), индекс (`build_index.py`), оценка точности (`eval.py`), пересчёт эталонных пунктов ПП (`relabel_npa_items.py`), замер скорости (`bench.py`) |
+| `reports/` | результаты замеров: `eval_*_ft_avx2.md` — модель по умолчанию |
 
 ## Как помогать команде
 

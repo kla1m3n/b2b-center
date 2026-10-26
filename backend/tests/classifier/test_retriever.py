@@ -1,6 +1,7 @@
 import pytest
 
 from app.classifier.retriever import retrieve
+from app.config import get_settings
 
 
 @pytest.mark.models
@@ -18,6 +19,27 @@ def test_retrieve_one_list_per_query_and_unique_codes(seeded_session, embedder):
         codes = [c.code for c in cands]
         assert len(codes) == len(set(codes))
         assert all(cands[i].score >= cands[i + 1].score for i in range(len(cands) - 1))
+
+
+def test_ties_broken_by_official_title_then_code(session):
+    from app.classifier.retriever import Candidate, _break_ties
+    from app.models import Okpd2Code, Okpd2Text
+
+    q = [1.0] + [0.0] * (get_settings().embed_dim - 1)
+    near = [0.9, 0.1] + [0.0] * (get_settings().embed_dim - 2)   # официальное наименование ближе к запросу
+    far = [0.1, 0.9] + [0.0] * (get_settings().embed_dim - 2)
+    session.add_all([Okpd2Code(code=c, title=c, is_leaf=True) for c in ("99.99.99.110", "99.99.99.120", "99.99.99.130")])
+    session.flush()
+    session.add_all([Okpd2Text(code="99.99.99.110", text="a", kind="official", embedding=far),
+                     Okpd2Text(code="99.99.99.120", text="b", kind="official", embedding=near),
+                     Okpd2Text(code="99.99.99.130", text="c", kind="official", embedding=far)])
+    session.flush()
+    cands = [Candidate("99.99.99.110", "", 0.9, "папка"), Candidate("99.99.99.130", "", 0.9, "папка"),
+             Candidate("99.99.99.120", "", 0.9, "папка"), Candidate("99.99.99.111", "", 0.5, "x")]
+    got = [c.code for c in _break_ties(session, q, cands)]
+    # ничья из трёх: ближе всех по наименованию .120; у .110 и .130 наименования одинаково далеки — по коду
+    assert got == ["99.99.99.120", "99.99.99.110", "99.99.99.130", "99.99.99.111"]
+    assert _break_ties(session, q, cands[2:]) == cands[2:]  # без ничьих порядок не меняется
 
 
 @pytest.mark.models

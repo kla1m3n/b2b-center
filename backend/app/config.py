@@ -13,8 +13,15 @@ class Settings(BaseSettings):
     # Только латиница, цифры и знаки: пароль идёт в HTTP-заголовке X-Admin-Token, кириллицу браузер не отправит.
     admin_token: str = ""
 
+    # Модель эмбеддингов: имя на Hugging Face или папка (дообученная в Kaggle: /data/models/e5-large-pp1875).
+    # Префиксы запроса/документа выбираются по имени («e5», «frida»), поэтому имя папки должно их содержать.
     embed_model: str = "intfloat/multilingual-e5-large"
-    embed_dim: int = 1024
+    embed_dim: int = 1024  # 1024 у e5-large, 312 у rubert-mini-frida; при смене таблица векторов пересоздаётся
+    # onnx (по умолчанию) — ONNX Runtime, int8-модель: у intfloat/multilingual-e5-large она есть в репозитории HF
+    # (onnx/model_qint8_avx512_vnni.onnx), при сборке качается только она; torch — sentence-transformers.
+    # embed_onnx_file — путь к .onnx внутри модели; пусто — int8-файл под процессор, иначе onnx/model.onnx
+    embed_backend: str = "onnx"
+    embed_onnx_file: str = ""
     device: str = "cpu"
     retrieve_k: int = 20
     lexical_search: bool = True  # поиск по словам (BM25) вдобавок к поиску по смыслу, объединение по рангам

@@ -26,9 +26,12 @@ RUN --mount=type=bind,from=pipseed,target=/pipseed \
 ENV PYTHONPATH=/app
 
 ARG EMBED_MODEL=intfloat/multilingual-e5-large
+ARG EMBED_BACKEND=onnx
+ARG EMBED_ONNX_FILE=
 COPY scripts/download_models.py scripts/
 # /seed — локальный кэш моделей (.hf в корне репозитория); если пуст, модель скачивается из интернета
-RUN --mount=type=bind,from=hfseed,target=/seed python scripts/download_models.py ${EMBED_MODEL}
+RUN --mount=type=bind,from=hfseed,target=/seed \
+    EMBED_BACKEND=${EMBED_BACKEND} EMBED_ONNX_FILE=${EMBED_ONNX_FILE} python scripts/download_models.py ${EMBED_MODEL}
 ENV HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
 
 COPY . .

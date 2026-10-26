@@ -8,6 +8,7 @@ dist/
 .scratch/
 .hf/*
 !.hf/.gitkeep
+data/models/
 wheels/*
 !wheels/cpu/
 wheels/cpu/*

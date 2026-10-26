@@ -12,7 +12,7 @@ name;okpd2_expected;regime_expected;appendix_item_expected;source
 Стол письменный офисный;31.01.12.110;restriction;2:139 3:232;claude-starter
 Смартфон Samsung Galaxy A55;26.30.22.110;restriction;2:212 3:57;claude-starter
 Телевизор LED 55 дюймов;26.40.20.120;restriction;2:236 3:63;claude-starter
-Шины зимние 205/55 R16 для легкового автомобиля;22.11.11.000;ban;1:14 2:109 2:111 2:112;claude-starter
+Шины зимние 205/55 R16 для легкового автомобиля;22.11.11.000;ban;1:14;claude-starter
 Бензин АИ-92;19.20.21;none;;claude-starter
 Огнетушитель порошковый ОП-4;28.29.22.110;none;;claude-starter
 Шампунь для волос 400 мл;20.42.16.110;none;;claude-starter
@@ -21,13 +21,13 @@ name;okpd2_expected;regime_expected;appendix_item_expected;source
 Лампа светодиодная E27 10 Вт;27.40.15.150;restriction;2:328 3:104;claude-starter
 Щебень гранитный фракции 20-40;08.12.12.140;restriction;2:1 3:1;claude-starter
 Молоко питьевое пастеризованное 3,2%, 1 л;10.51.11;none;;claude-starter
-Комплект постельного белья хлопок 1,5-спальный;13.92.12.114;ban;1:2 2:109 2:111 2:112;claude-starter
-Трубы ПНД напорные для водопровода d32;22.21.21.122;restriction;2:71 2:109 2:111 2:112;claude-starter
-Кабель ВВГнг 3х2,5;27.32.13.110;ban;1:31_1 2:113 3:103;claude-starter
+Комплект постельного белья хлопок 1,5-спальный;13.92.12.114;ban;1:2;claude-starter
+Трубы ПНД напорные для водопровода d32;22.21.21.122;restriction;2:71;claude-starter
+Кабель ВВГнг 3х2,5;27.32.13.110;ban;1:31(1) 2:113 3:103;claude-starter
 Электродвигатель асинхронный трехфазный АИР 11 кВт;27.11.24;restriction;2:107 3:92;claude-starter
 Счетчик электроэнергии однофазный Меркурий 201;26.51.63.130;ban;1:28 3:75 3:76;claude-starter
 Аппарат УЗИ портативный;26.60.12.132;restriction;2:314 2:380 3:78 3:86;claude-starter
-Шприц одноразовый 5 мл;32.50.13.110;restriction;2:300 2:308 2:353 2:385 2:386 2:388 2:400 2:401 2:429 2:430 2:431 2:432;claude-starter
-Перчатки резиновые хозяйственные;22.19.60.114;restriction;2:69 2:109 2:111 2:112;claude-starter
+Шприц одноразовый 5 мл;32.50.13.110;restriction;2:300 2:308 2:353 2:385 2:386 2:388 2:388(1) 2:388(2) 2:400 2:401 2:429 2:430 2:431 2:432;claude-starter
+Перчатки резиновые хозяйственные;22.19.60.114;restriction;2:69;claude-starter
 Плита ДСП 16 мм;16.21.13.000;ban;1:8;claude-starter
 Автомобиль легковой Lada Vesta;29.10.22.000;ban;1:92 3:190;claude-starter

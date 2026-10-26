@@ -20,13 +20,21 @@ def test_texts_are_plain_titles_of_leaf_codes_plus_synonyms():
     ]
 
 
+def test_index_file_separate_for_onnx():
+    from app.seed import index_name
+
+    assert index_name("intfloat/multilingual-e5-large", "torch") == "intfloat-multilingual-e5-large.npz"
+    assert index_name("intfloat/multilingual-e5-large", "onnx") == "intfloat-multilingual-e5-large-onnx.npz"
+    assert index_name("/data/models/e5-large-pp1875-onnx", "onnx") == "data-models-e5-large-pp1875-onnx.npz"
+
+
 def test_reindex_replaces_search_texts_and_clears_cache(session, tmp_path, monkeypatch):
     import numpy as np
     from sqlalchemy import delete, text
 
     from app.config import get_settings
     from app.models import ClassificationCache, Okpd2Text
-    from app.seed import model_slug, run
+    from app.seed import index_name, run
 
     dim = get_settings().embed_dim
     session.execute(delete(Okpd2Text))
@@ -36,7 +44,8 @@ def test_reindex_replaces_search_texts_and_clears_cache(session, tmp_path, monke
     session.add(ClassificationCache(norm_name="ноутбук", npa_version=0, result={}))
     session.commit()
     (tmp_path / "index").mkdir()
-    np.savez_compressed(tmp_path / "index" / f"{model_slug(get_settings().embed_model)}.npz",
+    s = get_settings()
+    np.savez_compressed(tmp_path / "index" / index_name(s.embed_model, s.embed_backend),
                         codes=np.array(["26.20.11.110", "26.20.11.110"]), texts=np.array(["Ноутбуки", "лэптоп"]),
                         kinds=np.array(["official", "synonym"]), vectors=np.ones((2, dim), dtype=np.float16))
     monkeypatch.setattr(get_settings(), "data_dir", str(tmp_path))

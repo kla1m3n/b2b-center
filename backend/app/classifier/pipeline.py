@@ -81,6 +81,7 @@ class Pipeline:
                 select(Okpd2Text.code, Okpd2Code.title, (1 - dist).label("score"))
                 .join(Okpd2Code, Okpd2Code.code == Okpd2Text.code)
                 .where(Okpd2Text.code.in_(missing))
+                .order_by(Okpd2Text.code, Okpd2Text.id)  # при равной оценке текст не должен зависеть от порядка в БД
             ).all()
             for code, title, score in rows:
                 prev = by_code.get(code)

@@ -4,6 +4,7 @@ SPELLER = Speller([
     "Приемники телевизионные (телевизоры) цветного изображения", "телевизор",
     "Блокноты", "блокнот", "Тетради школьные", "Мониторы", "монитор",
     "Системные блоки", "системный блок", "Столы письменные", "Лампы светодиодные",
+    "Плиты древесно-стружечные", "плита дсп", "Пилы дисковые",
 ])
 
 
@@ -18,6 +19,8 @@ def test_typos_in_main_word_are_fixed():
     assert SPELLER.correct("блконот а5") == "блокнот а5"
     assert SPELLER.correct("моинтор samsung") == "монитор samsung"
     assert SPELLER.correct("сисетмный блок") == "системный блок"
+    assert SPELLER.correct("пилта дсп 16 мм") == "плита дсп 16 мм"  # переставлены 2-я и 3-я буквы
+    assert SPELLER.correct("мноитор samsung") == "монитор samsung"
 
 
 def test_unknown_but_correct_words_are_kept():

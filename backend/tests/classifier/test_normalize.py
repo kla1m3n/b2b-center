@@ -24,6 +24,12 @@ def test_normalize_drops_eis_boilerplate_phrases():
     assert normalize("Перчатки резиновые (не является медицинским изделием)") == "перчатки резиновые"
     assert normalize("Картридж Xerox (или аналог)") == "картридж xerox"
     assert normalize("Бумага А4 или эквивалент") == "бумага а4"
+    assert normalize("Поставка товара: Автомобиль легковой Lada Vesta (или эквивалент)") == "автомобиль легковой lada vesta"
+    assert normalize("Поставка бумаги для принтера") == "бумаги для принтера"
+    assert normalize("Закупка товаров - перчатки нитриловые") == "перчатки нитриловые"
+    # в середине названия и без пробела после — не шаблон
+    assert normalize("Услуги по поставке тепловой энергии") == "услуги по поставке тепловой энергии"
+    assert normalize("Поставщик") == "поставщик"
 
 
 def test_normalize_expands_industry_abbreviations():

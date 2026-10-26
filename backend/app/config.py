@@ -13,13 +13,14 @@ class Settings(BaseSettings):
     # Только латиница, цифры и знаки: пароль идёт в HTTP-заголовке X-Admin-Token, кириллицу браузер не отправит.
     admin_token: str = ""
 
-    # Модель эмбеддингов: имя на Hugging Face или папка (дообученная в Kaggle: /data/models/e5-large-pp1875).
-    # Префиксы запроса/документа выбираются по имени («e5», «frida»), поэтому имя папки должно их содержать.
-    embed_model: str = "intfloat/multilingual-e5-large"
+    # Модель эмбеддингов: имя на Hugging Face или папка. По умолчанию — e5-large, дообученная на закупках (Kaggle),
+    # в ONNX int8 под AVX2 (onnx/model_quint8_avx2.onnx); при сборке качается только этот файл и токенизатор.
+    # Префиксы запроса/документа выбираются по имени («e5», «frida»), поэтому имя модели должно их содержать.
+    embed_model: str = "BOBUS2317/e5-large-pp1875-onnx"
     embed_dim: int = 1024  # 1024 у e5-large, 312 у rubert-mini-frida; при смене таблица векторов пересоздаётся
-    # onnx (по умолчанию) — ONNX Runtime, int8-модель: у intfloat/multilingual-e5-large она есть в репозитории HF
-    # (onnx/model_qint8_avx512_vnni.onnx), при сборке качается только она; torch — sentence-transformers.
-    # embed_onnx_file — путь к .onnx внутри модели; пусто — int8-файл под процессор, иначе onnx/model.onnx
+    # onnx (по умолчанию) — ONNX Runtime; torch — sentence-transformers (нужна модель с весами PyTorch,
+    # например EMBED_MODEL=intfloat/multilingual-e5-large). embed_onnx_file — путь к .onnx внутри модели;
+    # пусто — int8-файл под процессор, иначе onnx/model.onnx
     embed_backend: str = "onnx"
     embed_onnx_file: str = ""
     device: str = "cpu"
@@ -27,16 +28,16 @@ class Settings(BaseSettings):
     lexical_search: bool = True  # поиск по словам (BM25) вдобавок к поиску по смыслу, объединение по рангам
     spell_correction: bool = True  # исправлять опечатки по словарю наименований ОКПД2 и синонимов (spell.py)
     lexical_weight: float = 0.5  # вес поиска по словам в объединении (поиск по смыслу — 1.0)
-    # Уверенность = вероятность верного вердикта по ПП (w_score, w_margin, bias); подбор: scripts/eval.py --fit-confidence
-    confidence_coef: tuple[float, float, float] = (11.055, 58.809, -8.864)
+    # Уверенность = вероятность верного вердикта по ПП (w_score, w_margin, bias); подбор: scripts/eval.py --fit-confidence.
+    # Подобрана на dev под модель по умолчанию; у исходной e5-large было (11.055, 58.809, -8.864).
+    confidence_coef: tuple[float, float, float] = (4.577, 0.429, -1.846)
 
     llm_api_key: str = ""
     llm_base_url: str = "https://api.openai.com/v1"
     llm_model: str = "gpt-4o-mini"
 
-    # «⚠ Проверьте вручную», если вероятность верного вердикта ниже порога. На dev (reports/eval_dev.md):
-    # уверенность 60–80% → вердикт верен в 69% случаев, 80–100% → в 92%. При старом пороге 0.60 пометка
-    # после перекалибровки не срабатывала ни разу (минимальная уверенность на dev — около 60%).
+    # «⚠ Проверьте вручную», если вероятность верного вердикта ниже порога. На dev (reports/eval_dev_ft_avx2.md):
+    # уверенность 40–60% → вердикт верен в 29% случаев, 60–80% → в 85%, 80–100% → в 96%.
     needs_review_threshold: float = 0.80
     batch_limit: int = 100
 

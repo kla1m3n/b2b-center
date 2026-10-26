@@ -40,14 +40,26 @@ Kaggle, архив `artifacts.zip`) подключается настройка�
 |---|---|---|
 | PyTorch | `models/e5-large-pp1875/` | `EMBED_MODEL=/data/models/e5-large-pp1875` |
 | ONNX int8 (запрос в ~4 раза быстрее на CPU) | `models/e5-large-pp1875-onnx/` | `EMBED_MODEL=/data/models/e5-large-pp1875-onnx`<br>`EMBED_BACKEND=onnx` |
+| ONNX int8 с Hugging Face (для сборки на чистой машине) | ничего | `EMBED_MODEL=<логин>/e5-large-pp1875-onnx`<br>`EMBED_BACKEND=onnx` |
 
 Для маленькой модели `rubert-mini-frida-pp1875` ещё `EMBED_DIM=312`. Папка `data/models/` в git не попадает.
+
+**ONNX с Hugging Face.** `docker compose build` передаёт `EMBED_MODEL` и `EMBED_BACKEND` в сборку, и
+`scripts/download_models.py` кладёт в образ только файл ONNX, токенизатор и конфиги (без весов PyTorch). В репозитории
+на HF — содержимое папки `e5-large-pp1875-onnx/` из архива, файл модели в `onnx/`. Если там несколько int8-файлов
+(`…_avx2`, `…_avx512_vnni`, `…_arm64`), бэкенд сам берёт подходящий процессору; конкретный задаётся
+`EMBED_ONNX_FILE=onnx/<файл>.onnx`. Квантование под `avx512_vnni` работает и на процессорах без AVX-512, но медленнее —
+для чужих машин надёжнее `avx2`.
 
 Из `artifacts.zip/backend_data/` (если ноутбук написал «doc2query в экспорт вошёл»):
 - `okpd2_synonyms.csv` → `data/okpd2_synonyms.csv` — синонимы плюс формулировки заказчиков от LLM;
 - `index/data-models-e5-large-pp1875.npz` → `data/index/` — готовые эмбеддинги индекса (иначе бэкенд считает
-  их на CPU, для ~100 тыс. текстов это десятки минут). Для ONNX переименуйте в `data-models-e5-large-pp1875-onnx.npz`:
-  имя файла = `EMBED_MODEL` в нижнем регистре, всё кроме букв и цифр заменено на `-`.
+  их на CPU, для ~100 тыс. текстов это десятки минут). Имя файла = `EMBED_MODEL` в нижнем регистре, всё кроме букв и
+  цифр заменено на `-`.
+
+Индекс для ONNX лучше построить той же int8-моделью (16 тыс. текстов — ~20 мин на CPU), тогда запрос и индекс
+считаются одинаково:
+`docker compose run --rm -v ./backend:/app -v ./data:/datarw api python scripts/build_index.py --data /datarw --model <EMBED_MODEL>`.
 
 Затем перезагрузка текстов поиска, калибровка уверенности и замеры:
 

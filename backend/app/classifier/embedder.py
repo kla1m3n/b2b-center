@@ -5,9 +5,11 @@
   * transformers + pooling вручную — если папку модели сохранила более новая версия sentence-transformers,
     чем стоит в образе (модель дообучалась в Kaggle), и SentenceTransformer её не открывает;
   * ONNX Runtime (EMBED_BACKEND=onnx) — модель из ноутбука, квантованная в int8: запрос в ~4 раза быстрее на CPU.
+    EMBED_MODEL — папка или имя репозитория на Hugging Face (скачивается при сборке образа).
 """
 import json
 import logging
+import platform
 from pathlib import Path
 
 import numpy as np
@@ -27,6 +29,46 @@ def prefixes(model_name: str) -> tuple[str, str]:
 
 def _read_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+
+
+def _cpu_flags() -> set[str]:
+    try:
+        return set(Path("/proc/cpuinfo").read_text().split())
+    except OSError:
+        return set()
+
+
+def pick_onnx_file(files: list[Path], machine: str | None = None, flags: set[str] | None = None) -> Path | None:
+    """int8-файл под процессор: квантование под AVX-512 VNNI на процессоре без него работает медленнее,
+    а файл под arm64 на x86 — тем более. Порядок: самый быстрый из поддерживаемых, затем любой int8, затем model.onnx."""
+    machine = (machine or platform.machine()).lower()
+    flags = _cpu_flags() if flags is None else flags
+    if machine in ("arm64", "aarch64"):
+        prefs = ["arm64"]
+    else:
+        prefs = (["avx512_vnni"] if "avx512_vnni" in flags else []) + (["avx512"] if "avx512f" in flags else []) + ["avx2"]
+    int8 = [f for f in files if "int8" in f.name]
+    for p in prefs:
+        hit = [f for f in int8 if f.stem.endswith(p)]
+        if hit:
+            return hit[0]
+    other = [f for f in int8 if not f.stem.endswith(("arm64", "avx512_vnni", "avx512"))]
+    plain = [f for f in files if f.name == "model.onnx"]
+    return (other or plain or int8 or files or [None])[0]
+
+
+def _model_dir(model_name: str) -> Path:
+    """Папка модели: путь как есть (data/models/...) или имя на Hugging Face — тогда папка из кэша HF_HOME,
+    куда модель положил scripts/download_models.py при сборке образа (в работающем контейнере интернета нет)."""
+    if Path(model_name).is_dir():
+        return Path(model_name)
+    from huggingface_hub import snapshot_download
+
+    try:
+        return Path(snapshot_download(model_name, local_files_only=True))
+    except Exception as e:
+        raise FileNotFoundError(f"Модели {model_name} нет ни в папке, ни в кэше Hugging Face: пересоберите образ "
+                                f"(docker compose build) с EMBED_MODEL={model_name}") from e
 
 
 class _Pooled:
@@ -73,11 +115,10 @@ class _OnnxModel(_Pooled):
 
         super().__init__(model_dir)
         path = model_dir / onnx_file if onnx_file else None
-        if path is None or not path.exists():  # не указан — int8 из ноутбука, иначе обычный model.onnx
-            found = sorted((model_dir / "onnx").glob("model_*int8*.onnx")) + sorted((model_dir / "onnx").glob("model.onnx"))
-            if not found:
+        if path is None or not path.exists():  # не указан — int8 под этот процессор, иначе обычный model.onnx
+            path = pick_onnx_file(sorted((model_dir / "onnx").glob("*.onnx")))
+            if path is None:
                 raise FileNotFoundError(f"В {model_dir}/onnx нет файла модели ONNX")
-            path = found[0]
         opts = ort.SessionOptions()
         opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
         self.sess = ort.InferenceSession(str(path), opts, providers=["CPUExecutionProvider"])
@@ -116,7 +157,7 @@ class Embedder:
         self._q, self._p = prefixes(model_name)
         self._st = self._raw = None
         if backend == "onnx":
-            self._raw = _OnnxModel(Path(model_name), onnx_file or "")
+            self._raw = _OnnxModel(_model_dir(model_name), onnx_file or "")
         else:
             try:
                 from sentence_transformers import SentenceTransformer

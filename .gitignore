@@ -13,3 +13,6 @@ wheels/*
 !wheels/cpu/
 wheels/cpu/*
 !wheels/cpu/.gitkeep
+
+# обучающие выборки: большие, пересобираются scripts/make_train_set.py
+data/train/

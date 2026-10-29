@@ -25,6 +25,9 @@ cd frontend && npm test                                      # сайт (vitest)
 | `eval.py` | точность на наборе → `reports/eval*.md`; `--fit-confidence` подбирает калибровку уверенности |
 | `bench.py` | скорость: 1 товар p50/p95 и пакет из 100 → `reports/bench.md` |
 | `compare_models.py` | сравнение моделей эмбеддингов по recall@k (индекс в памяти, БД не нужна) |
+| `train_seed.py` → `make_train_set.py` | синтетическая обучающая выборка для дообучения модели поиска → `data/train/synthetic.csv`: пары «запрос → наименование кода» с трудным негативом, без пересечений с `data/eval/` |
+
+Дообучение модели поиска на этой выборке (Kaggle) и подключение результата — [training/README.md](../training/README.md).
 
 ## Обновление базы ПП 1875
 

@@ -229,6 +229,8 @@ def main():
     p.add_argument("--batch-synth", type=int, default=3, help="кодов в одном запросе для синтетики")
     p.add_argument("--batch-d2q", type=int, default=8, help="кодов в одном запросе для doc2query")
     p.add_argument("--limit", type=int, default=0, help="только первые N кодов каждого вида (пробный запуск)")
+    p.add_argument("--prefixes", default="", help="синтетика только для кодов этих разделов (через запятую), "
+                   "напр. 14.,13.92,32.50,21.20,01. — прицельно по слабым темам; --out лучше отдельный")
     p.add_argument("--dry-run", action="store_true", help="только посчитать коды и примерный расход токенов")
     p.add_argument("--oauth-url", default=OAUTH_URL)
     p.add_argument("--api-url", default=API_URL)
@@ -238,6 +240,9 @@ def main():
     os.makedirs(a.out, exist_ok=True)
     synth_path, d2q_path = os.path.join(a.out, "synth.csv"), os.path.join(a.out, "okpd2_generated_raw.csv")
     s_codes = synth_targets(docs, a.data)
+    if a.prefixes:  # все коды нижнего уровня разделов, а не только отобранные synth_targets
+        pref = tuple(x.strip() for x in a.prefixes.split(",") if x.strip())
+        s_codes = [c for c in docs["code"] if c.startswith(pref)]
     if a.limit:
         s_codes = s_codes[:a.limit]
 

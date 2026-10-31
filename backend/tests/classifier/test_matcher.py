@@ -70,3 +70,14 @@ def test_category_covers_its_subcategories():
     assert not code_covers("26.51.63.130", "26.51.63.121")  # другая категория (.120 — жидкости)
     assert not code_covers("26.51.63.131", "26.51.63.139")  # подкатегория не покрывает соседнюю
     assert not code_covers("26.51.63.130", "26.51.6")  # более общий код не покрывается частным
+
+
+def test_group_codes_with_trailing_zeros_cover_their_codes():
+    # .X00 — группа категорий, .000 — весь вид (так коды пишутся в ПП 1875)
+    assert code_covers("10.51.30.100", "10.51.30.120")
+    assert code_covers("10.51.30.100", "10.51.30.132")
+    assert not code_covers("10.51.30.100", "10.51.30.210")
+    assert code_covers("25.99.26.000", "25.99.26.110")
+    assert code_covers("26.80.13.000", "26.80.13.190")
+    assert not code_covers("25.99.26.000", "25.99.27.110")
+    assert not code_covers("26.51.63.131", "26.51.63.139")  # подкатегория без нулей — только сама

@@ -68,8 +68,13 @@ def fit_confidence(pipe: Pipeline, rows: list[dict], results: list) -> None:
     from app.classifier.normalize import normalize
     from app.classifier.retriever import retrieve
 
-    with SessionLocal() as s:
-        cands = retrieve(s, pipe.embedder.encode_queries([normalize(r["name"]) for r in rows]), 2)
+    queries = [normalize(r["name"]) for r in rows]
+    qvecs = pipe.embedder.encode_queries(queries)
+    if pipe._ens is not None:  # при ансамбле оценка — среднее по двум моделям, калибруем на ней
+        cands = [pipe._ens.search(a, b, 2)[0] for a, b in zip(qvecs, pipe._ens.embedder.encode_queries(queries))]
+    else:
+        with SessionLocal() as s:
+            cands = retrieve(s, qvecs, 2)
     feats = [(c[0].score, c[1].score) for c in cands]
     labels = [int(res.verdict.value == r["regime_expected"]) for res, r in zip(results, rows)]
     coef = fit_calibration(feats, labels)

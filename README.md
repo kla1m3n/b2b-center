@@ -105,8 +105,11 @@ docker-compose up --build
 
 Откат — удалить строки `EMBED_*` и `CONFIDENCE_COEF` из `.env`, `docker compose build` и снова `app.seed --reindex`.
 
-Модель обучается ноутбуком в Kaggle (пакет `pp1875_task2`), экспорт — `artifacts.zip`: папка модели и её ONNX-версия.
-Формулировки doc2query из архива **не подключаем**: на тестовых наборах с ними вердикт хуже.
+Модель обучается ноутбуком в Kaggle — `training/kaggle/pp1875_kaggle.ipynb` (инструкция `training/kaggle/README.md`).
+Экспорт — `artifacts.zip` **только с ONNX int8 под AVX2** (`<модель>-onnx/onnx/model_quint8_avx2.onnx`), готовым
+индексом `backend_data/index/<имя>.npz` (имя уже как у `seed.index_name`) и, по желанию, выгрузкой на Hugging Face.
+Формулировки doc2query ноутбук кладёт в `backend_data/okpd2_synonyms.csv`, только если с ними вердикт не хуже и на dev,
+и на тестовом наборе; если в выводе «doc2query в экспорт не вошёл» — `data/okpd2_synonyms.csv` не заменять.
 
 ## API — примеры запросов
 

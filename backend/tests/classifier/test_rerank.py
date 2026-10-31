@@ -1,4 +1,4 @@
-from app.classifier.rerank import prefer_goods, prefer_medical
+from app.classifier.rerank import prefer_goods, prefer_medical, same_group
 from app.classifier.retriever import Candidate
 
 
@@ -32,3 +32,11 @@ def test_medical_codes_first_for_medical_device():
 
 def test_medical_rule_ignores_regular_goods():
     assert prefer_medical("цемент м500", [BUILD_CEMENT, DENTAL]) == [BUILD_CEMENT, DENTAL]
+
+
+def test_same_group_follows_rerank_rules():
+    goods = same_group("автомобиль легковой")
+    assert goods(CAR, CAR) and not goods(CAR, SERVICE)
+    assert same_group("аренда автомобиля")(CAR, SERVICE)       # запрос — услуга: правило товаров не действует
+    med = same_group("медицинское изделие цемент")
+    assert med(DENTAL, DENTAL) and not med(DENTAL, BUILD_CEMENT)

@@ -5,6 +5,7 @@
 import re
 import threading
 from collections.abc import Callable
+from pathlib import Path
 
 import numpy as np
 from sqlalchemy import select
@@ -13,10 +14,11 @@ from sqlalchemy.orm import Session
 
 from app.classifier.confidence import calibrated
 from app.classifier.embedder import Embedder
+from app.classifier.ensemble import EnsembleIndex
 from app.classifier.lexical import LexicalIndex, rrf
 from app.classifier.matcher import match, rank_by_overlap, verdict
 from app.classifier.normalize import normalize
-from app.classifier.rerank import prefer_goods, prefer_medical
+from app.classifier.rerank import prefer_goods, prefer_medical, same_group
 from app.classifier.spell import Speller
 from app.classifier.retriever import Candidate, retrieve
 from app.config import Settings
@@ -38,6 +40,7 @@ class Pipeline:
         self._items: dict[int, list] = {}
         self._lex: LexicalIndex | None = None
         self._speller: Speller | None = None
+        self._ens: EnsembleIndex | None = None
         self._lock = threading.Lock()
 
     def warmup(self) -> None:
@@ -50,6 +53,11 @@ class Pipeline:
                 self._version_items(session, version.id)
             if self.s.lexical_search or self.s.spell_correction:
                 self._lexical(session)
+            if self.s.ensemble_model:
+                from app.seed import index_name
+
+                index = Path(self.s.data_dir) / "index" / index_name(self.s.ensemble_model, "onnx")
+                self._ens = EnsembleIndex.load(session, self.s.ensemble_model, index, self.s.ensemble_weight)
 
     def _lexical(self, session: Session) -> LexicalIndex:
         """Индекс BM25 по текстам кодов нижнего уровня — строится один раз, в памяти (~1 с)."""
@@ -64,9 +72,11 @@ class Pipeline:
                 self._speller = Speller(text for _, text in rows)  # словарь — те же наименования и синонимы
             return self._lex
 
-    def _fuse(self, session: Session, norm: str, qvec: np.ndarray, vec_cands: list[Candidate]) -> list[Candidate]:
+    def _fuse(self, session: Session, norm: str, qvec: np.ndarray, vec_cands: list[Candidate],
+              lookup: Callable[[str], Candidate | None] | None = None) -> list[Candidate]:
         """Поиск по смыслу + по словам, объединение по рангам (RRF). Оценка кандидата — по-прежнему косинусная
-        близость (на ней откалибрована уверенность), для найденных только по словам она досчитывается из БД."""
+        близость (на ней откалибрована уверенность), для найденных только по словам она досчитывается из БД
+        (при ансамбле — из его матриц, lookup)."""
         k = self.s.retrieve_k
         lex = self._lexical(session).search(norm, k)
         if not lex:
@@ -75,7 +85,12 @@ class Pipeline:
         by_code = {c.code: c for c in vec_cands}
         lex_text = {code: text for code, _, text in lex}
         missing = [c for c in order if c not in by_code]
-        if missing:
+        if missing and lookup is not None:
+            for code in missing:
+                c = lookup(code)
+                if c is not None:
+                    by_code[code] = Candidate(code=code, title=c.title, score=c.score, matched_text=lex_text[code])
+        elif missing:
             dist = Okpd2Text.embedding.cosine_distance(qvec.tolist())
             rows = session.execute(
                 select(Okpd2Text.code, Okpd2Code.title, (1 - dist).label("score"))
@@ -87,7 +102,37 @@ class Pipeline:
                 prev = by_code.get(code)
                 if prev is None or score > prev.score:
                     by_code[code] = Candidate(code=code, title=title, score=float(score), matched_text=lex_text[code])
-        return [by_code[c] for c in order if c in by_code]
+        out = [by_code[c] for c in order if c in by_code]
+        gap = self.s.lexical_max_gap
+        if gap > 0 and out:  # слово совпало, а по смыслу далеко (0,42 против 0,73) — такой код не ставим первым
+            floor = max(c.score for c in out) - gap
+            if out[0].score < floor:
+                i = next(i for i, c in enumerate(out) if c.score >= floor)
+                out = [out[i]] + out[:i] + out[i + 1:]
+        return out
+
+    def _vote(self, query: str, cands: list[Candidate], items: list) -> list[Candidate]:
+        """Голосование по режиму ПП среди топ-vote_k кандидатов группы лучшего (как aggregate_outcomes в ноутбуке).
+
+        Если модель колеблется между соседними кодами одного режима («ограничение» у .110 и .120), их вероятности
+        складываются, и одиночный близкий кандидат другого режима не перетягивает вердикт. Код в ответе — лучший
+        по рангу кандидат победившего режима: код, вердикт и пункты ПП не расходятся.
+        """
+        same = same_group(query)
+        pool = [c for c in cands[: self.s.vote_k] if same(c, cands[0])]
+        if len(pool) < 2:
+            return cands
+        z = np.array([c.score for c in pool]) / max(self.s.vote_temperature, 1e-6)
+        p = np.exp(z - z.max())
+        regimes = [verdict(match(c.code, items)) for c in pool]
+        mass: dict[Regime, float] = {}
+        for r, x in zip(regimes, p):
+            mass[r] = mass.get(r, 0.0) + float(x)
+        win = max(mass, key=mass.__getitem__)
+        if win == regimes[0]:
+            return cands
+        best = pool[regimes.index(win)]
+        return [best] + [c for c in cands if c is not best]
 
     def _version_items(self, session: Session, version_id: int) -> list:
         with self._lock:
@@ -158,16 +203,24 @@ class Pipeline:
         else:
             queries = norms
         qvecs = self.embedder.encode_queries(queries)
-        cand_lists = retrieve(session, qvecs, self.s.retrieve_k)
+        if self._ens is not None:
+            found = [self._ens.search(a, b, self.s.retrieve_k)
+                     for a, b in zip(qvecs, self._ens.embedder.encode_queries(queries))]
+            cand_lists, lookups = [f[0] for f in found], [f[1] for f in found]
+        else:
+            cand_lists, lookups = retrieve(session, qvecs, self.s.retrieve_k), [None] * len(queries)
         if self.s.lexical_search:
-            cand_lists = [self._fuse(session, q, qv, c) for q, qv, c in zip(queries, qvecs, cand_lists)]
+            cand_lists = [self._fuse(session, q, qv, c, lk)
+                          for q, qv, c, lk in zip(queries, qvecs, cand_lists, lookups)]
         cand_lists = [prefer_medical(q, prefer_goods(q, c)) for q, c in zip(queries, cand_lists)]
         items = self._version_items(session, version.id) if version else []
         source_url = version.source_url if version else ""
         out = {}
-        for norm, cands in zip(norms, cand_lists):
+        for norm, q, cands in zip(norms, queries, cand_lists):
             if not cands:
                 continue
+            if self.s.verdict_vote and items:
+                cands = self._vote(q, cands, items)
             matches = rank_by_overlap(norm, match(cands[0].code, items, source_url))
             out[norm] = self._result(norm, cands, matches)
         return out

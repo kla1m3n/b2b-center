@@ -4,31 +4,37 @@
 Выход: data/eval/dev.csv      — половина для настройки (синонимы, параметры);
        data/eval/holdout.csv  — отложенная половина: смотрим только на итоговый замер.
 
-Вердикт и пункты ПП считаются из эталонного кода детерминированно (по data/npa/pp1875.json).
-Деление стратифицировано по сфере, с фиксированным seed — повторный запуск даёт то же разбиение.
+Вердикт и пункты ПП считаются из эталонного кода тем же matcher, что в сервисе (по data/npa/pp1875.json).
+Деление стратифицировано по сфере, с фиксированным seed.
+
+Только для первичной сборки: при новых строках в zakupki_raw.csv повторное деление перемешало бы holdout
+(часть отложенных позиций попала бы в dev). Пополнять наборы — scripts/add_eval_rows.py; без --force скрипт
+не перезапишет существующие dev.csv/holdout.csv.
 """
 import argparse
 import csv
-import json
 import random
+import sys
 from collections import defaultdict
 from pathlib import Path
 
-REGIME = {1: "ban", 2: "restriction", 3: "advantage"}
-FIELDS = ["name", "okpd2_expected", "regime_expected", "appendix_item_expected", "sphere", "source"]
-
-
-def digits(code: str) -> str:
-    return code.replace(".", "")
+sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from add_eval_rows import FIELDS, labeled  # noqa: E402
+from app.npa.parser import parse_npa  # noqa: E402
 
 
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--data", type=Path, default=Path("/data"))
     p.add_argument("--seed", type=int, default=1875)
+    p.add_argument("--force", action="store_true", help="пересоздать dev.csv и holdout.csv (holdout перемешается)")
     a = p.parse_args()
     ev = a.data / "eval"
-    items = json.loads((a.data / "npa" / "pp1875.json").read_text(encoding="utf-8"))["items"]
+    if not a.force and ((ev / "dev.csv").exists() or (ev / "holdout.csv").exists()):
+        sys.exit("dev.csv/holdout.csv уже есть: пересоздание перемешает holdout. Пополнение — scripts/add_eval_rows.py; "
+                 "пересоздать всё равно — --force")
+    items = parse_npa(a.data / "npa" / "pp1875.json").items
     with (a.data / "okpd2.csv").open(encoding="utf-8") as f:
         known = {r["code"] for r in csv.DictReader(f, delimiter=";")}
 
@@ -41,14 +47,7 @@ def main() -> None:
             if code not in known:
                 skipped.append((name, code))
                 continue
-            ms = sorted((i for i in items if any(digits(code).startswith(digits(c)) for c in i["codes"])),
-                        key=lambda i: (i["appendix"], i["item_no"]))
-            rows.append({
-                "name": name, "okpd2_expected": code,
-                "regime_expected": REGIME[min(i["appendix"] for i in ms)] if ms else "none",
-                "appendix_item_expected": " ".join(f"{i['appendix']}:{i['item_no']}" for i in ms),
-                "sphere": sphere, "source": url,
-            })
+            rows.append(labeled(name, code, sphere, url, items))
 
     by_sphere = defaultdict(list)
     for r in rows:

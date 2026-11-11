@@ -1,6 +1,7 @@
-import { ActionIcon, Anchor, Badge, Table, Text } from "@mantine/core";
+import { ActionIcon, Anchor, Badge, Table, Text, Tooltip } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
 import { Fragment, useState } from "react";
+import { shortAction } from "../summary";
 import type { ClassificationResult } from "../types";
 import { ConfidenceCell } from "./ConfidenceCell";
 import { NotInAppendices } from "./NotInAppendices";
@@ -12,7 +13,8 @@ import { ResultDetails } from "./ResultDetails";
 const NOWRAP = { whiteSpace: "nowrap" } as const;
 
 export function ResultsTable({ results }: { results: ClassificationResult[] }) {
-  const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  // Один товар — подробности сразу раскрыты: рекомендация, альтернативы и обоснование видны без клика
+  const [expanded, setExpanded] = useState<Set<number>>(() => new Set(results.length === 1 && !results[0].error ? [0] : []));
   const [openItem, setOpenItem] = useState<number | null>(null);
 
   const toggle = (i: number) =>
@@ -77,7 +79,12 @@ export function ResultsTable({ results }: { results: ClassificationResult[] }) {
                           <Text size="sm" ff="monospace">{r.okpd2?.code}</Text>
                           <Text size="xs" c="dimmed" lineClamp={2}>{r.okpd2?.title}</Text>
                         </Table.Td>
-                        <Table.Td><RegimeBadge regime={r.verdict} /></Table.Td>
+                        <Table.Td>
+                          <RegimeBadge regime={r.verdict} />
+                          <Tooltip label={r.recommendation} multiline w={420} withArrow disabled={!r.recommendation}>
+                            <Text size="xs" c={r.needs_review ? "orange.8" : "dimmed"} mt={4} style={NOWRAP}>{shortAction(r)}</Text>
+                          </Tooltip>
+                        </Table.Td>
                         <Table.Td style={NOWRAP}>
                           {top ? (
                             top.item_id !== null ? (

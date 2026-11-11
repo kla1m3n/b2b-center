@@ -1,11 +1,37 @@
-import { Anchor, Badge, Group, List, Stack, Text } from "@mantine/core";
-import type { ClassificationResult } from "../types";
-import { RegimeBadge } from "./RegimeBadge";
+import { Alert, Anchor, Badge, Group, Stack, Table, Text } from "@mantine/core";
 import { confidencePct } from "../confidence";
+import type { Alternative, ClassificationResult } from "../types";
+import { JustificationBlock } from "./JustificationBlock";
+import { REGIME_COLORS, RegimeBadge } from "./RegimeBadge";
+
+/** Пункт ПП альтернативного кода: первый (главный по режиму) — ссылкой на текст пункта, остальные — числом. */
+function AlternativeItems({ alt, onOpenItem }: { alt: Alternative; onOpenItem: (id: number) => void }) {
+  const top = alt.npa_matches[0];
+  if (!top) return <Text size="sm" c="dimmed">не входит в прил. 1–3</Text>;
+  const label = `Прил. ${top.appendix}, п. ${top.item_no}`;
+  return (
+    <>
+      {top.item_id !== null ? (
+        <Anchor component="button" type="button" size="sm" onClick={() => onOpenItem(top.item_id!)}>{label}</Anchor>
+      ) : (
+        <Text size="sm" span>{label}</Text>
+      )}
+      {alt.npa_matches.length > 1 && <Text size="xs" c="dimmed">и ещё {alt.npa_matches.length - 1}</Text>}
+    </>
+  );
+}
 
 export function ResultDetails({ result, onOpenItem }: { result: ClassificationResult; onOpenItem: (id: number) => void }) {
+  const otherRegime = result.alternatives.some((a) => a.regime_differs);
   return (
     <Stack gap="sm" p="sm">
+      {result.recommendation && (
+        <Alert variant="light" py="xs" title="Что делать" data-testid="recommendation"
+          color={result.needs_review ? "orange" : REGIME_COLORS[result.verdict]}>
+          {result.recommendation}
+        </Alert>
+      )}
+
       {result.explanation && <Text size="sm">{result.explanation}</Text>}
 
       <div>
@@ -48,16 +74,46 @@ export function ResultDetails({ result, onOpenItem }: { result: ClassificationRe
 
       {result.alternatives.length > 0 && (
         <div>
-          <Text size="sm" fw={600} mb={4}>Другие возможные коды ОКПД2</Text>
-          <List size="sm" spacing={2}>
-            {result.alternatives.map((a) => (
-              <List.Item key={a.code}>
-                {a.code} — {a.title} <Text span c="dimmed">({confidencePct(a.confidence)}%)</Text>
-              </List.Item>
-            ))}
-          </List>
+          <Text size="sm" fw={600}>Другие возможные коды ОКПД2 и их режим</Text>
+          <Text size="xs" c={otherRegime ? "orange.8" : "dimmed"} mb={4}>
+            {otherRegime
+              ? "Внимание: при другом коде режим будет другим — убедитесь, что выбранный код точнее описывает товар."
+              : "При любом из этих кодов режим тот же, что у выбранного."}
+          </Text>
+          <Table.ScrollContainer minWidth={560}>
+            <Table verticalSpacing={6} withTableBorder data-testid="alternatives">
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>Код ОКПД2</Table.Th>
+                  <Table.Th>Режим</Table.Th>
+                  <Table.Th style={{ whiteSpace: "nowrap" }}>Пункт ПП</Table.Th>
+                  <Table.Th>Уверенность</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {result.alternatives.map((a) => (
+                  <Table.Tr key={a.code}>
+                    <Table.Td>
+                      <Text size="sm" ff="monospace">{a.code}</Text>
+                      <Text size="xs" c="dimmed">{a.title}</Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <RegimeBadge regime={a.verdict} size="sm" />
+                      {a.regime_differs && (
+                        <Badge size="xs" variant="light" color="orange" mt={4} display="block" w="fit-content">режим другой</Badge>
+                      )}
+                    </Table.Td>
+                    <Table.Td style={{ whiteSpace: "nowrap" }}><AlternativeItems alt={a} onOpenItem={onOpenItem} /></Table.Td>
+                    <Table.Td><Text size="sm">{confidencePct(a.confidence)}%</Text></Table.Td>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
+          </Table.ScrollContainer>
         </div>
       )}
+
+      <JustificationBlock result={result} />
     </Stack>
   );
 }

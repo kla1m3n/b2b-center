@@ -62,6 +62,13 @@ export function ResultCards({ results, expanded, onToggle, onOpenItem }: Props) 
                   )}
                 </div>
 
+                {r.recommendation && (
+                  <div className="result-card__field">
+                    <Text className="caps-label" c="dimmed">Что делать</Text>
+                    <Text size="sm" lineClamp={isOpen ? undefined : 3}>{r.recommendation}</Text>
+                  </div>
+                )}
+
                 <UnstyledButton className="result-card__toggle" onClick={() => onToggle(i)} aria-expanded={isOpen}>
                   {isOpen ? "Скрыть подробности ▴" : "Подробнее ▾"}
                 </UnstyledButton>

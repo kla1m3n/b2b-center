@@ -25,11 +25,13 @@ describe("ResultsTable", () => {
     expect(screen.getAllByText("⚠ Проверьте вручную")).toHaveLength(1);
   });
 
-  it("показывает режим, пункт ПП и уверенность", () => {
-    render(<ResultsTable results={[classifySync("Щебень гранитный")]} />);
+  it("показывает режим, пункт ПП, уверенность и короткое действие", () => {
+    render(<ResultsTable results={[classifySync("Щебень гранитный"), classifySync("Хлеб")]} />);
     expect(screen.getByText("ОГРАНИЧЕНИЕ")).toBeInTheDocument();
     expect(screen.getByText("Прил. 2, п. 1")).toBeInTheDocument();
     expect(screen.getByText("97%")).toBeInTheDocument();
+    expect(screen.getByText("Установить ограничение")).toBeInTheDocument();
+    expect(screen.getByText("Ограничений нет")).toBeInTheDocument();
   });
 
   it("показывает ошибку вместо результата", () => {
@@ -38,10 +40,19 @@ describe("ResultsTable", () => {
   });
 
   it("раскрывает подробности: все пункты и альтернативы", () => {
-    render(<ResultsTable results={[classifySync("Ноутбук")]} />);
-    fireEvent.click(screen.getByLabelText("Показать подробности"));
+    render(<ResultsTable results={[classifySync("Ноутбук"), classifySync("Хлеб")]} />);
+    expect(screen.queryByText("мин. доля 80%")).not.toBeInTheDocument(); // в списке подробности свёрнуты
+    fireEvent.click(screen.getAllByLabelText("Показать подробности")[0]);
     expect(screen.getByText("Прил. 3, п. 37")).toBeInTheDocument();
     expect(screen.getByText("мин. доля 80%")).toBeInTheDocument();
-    expect(screen.getByText("Другие возможные коды ОКПД2")).toBeInTheDocument();
+    expect(screen.getByText("Другие возможные коды ОКПД2 и их режим")).toBeInTheDocument();
+  });
+
+  it("один товар: подробности раскрыты сразу, их можно свернуть", () => {
+    render(<ResultsTable results={[classifySync("Ноутбук")]} />);
+    expect(screen.getByTestId("recommendation")).toBeInTheDocument();
+    expect(screen.getByTestId("justification")).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText("Скрыть подробности"));
+    expect(screen.queryByTestId("justification")).not.toBeInTheDocument();
   });
 });

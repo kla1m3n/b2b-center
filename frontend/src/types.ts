@@ -14,12 +14,6 @@ export interface Okpd2Ref {
   title: string;
 }
 
-export interface Alternative {
-  code: string;
-  title: string;
-  confidence: number; // 0..1
-}
-
 export interface NpaMatch {
   item_id: number | null;
   regime: Regime;
@@ -33,9 +27,20 @@ export interface NpaMatch {
   source_url: string;
 }
 
+export interface Alternative {
+  code: string;
+  title: string;
+  confidence: number; // 0..1
+  // Режим и пункты ПП, если бы товар отнесли к этому коду
+  verdict: Regime;
+  npa_matches: NpaMatch[];
+  regime_differs: boolean; // режим отличается от режима выбранного кода
+}
+
 export interface ClassificationResult {
   input: string;
   okpd2: Okpd2Ref | null;
+  matched_text: string; // текст классификатора (наименование кода или синоним), с которым совпал товар
   alternatives: Alternative[];
   confidence: number; // 0..1
   needs_review: boolean;
@@ -44,6 +49,35 @@ export interface ClassificationResult {
   explanation: string;
   error: string | null;
   npa_source_url: string; // текст действующей редакции ПП — есть и у «не подпадает»
+  npa_version: string; // название редакции ПП, по которой определён режим
+  recommendation: string; // что делать специалисту при таком режиме
+  justification: string; // готовый текст обоснования для документации
+}
+
+// Сводка по списку (backend/app/report.py: summarize). На сайте считается из результатов тем же правилом
+// (src/summary.ts): она нужна и для одиночной проверки, и для результатов из истории.
+export interface RegimeShare {
+  regime: Regime;
+  label: string;
+  count: number;
+  share: number; // доля от всех позиций списка, 0..1
+}
+
+export interface LowConfidenceItem {
+  idx: number; // номер позиции в списке, с 1
+  input: string;
+  code: string;
+  verdict: Regime;
+  confidence: number;
+}
+
+export interface ReportSummary {
+  total: number;
+  errors: number;
+  by_regime: RegimeShare[];
+  needs_review: number;
+  needs_review_share: number;
+  lowest_confidence: LowConfidenceItem[];
 }
 
 export interface HealthOut {
@@ -65,6 +99,7 @@ export interface JobOut {
   done: number;
   error: string | null;
   results: ClassificationResult[] | null; // только при status = "done"
+  summary: ReportSummary | null; // вместе с results
 }
 
 export type NpaVersionStatus = "parsing" | "ready" | "failed";

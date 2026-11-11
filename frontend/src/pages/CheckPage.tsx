@@ -1,9 +1,10 @@
-import { Alert, Anchor, Button, FileButton, Group, Paper, Progress, Stack, Text, Textarea, Title } from "@mantine/core";
+import { Alert, Anchor, Box, Button, FileButton, Group, Paper, Progress, Stack, Text, Textarea, Title } from "@mantine/core";
 import { useRef, useState, type DragEvent } from "react";
-import { classify, classifyBatch, classifyFile, getJob, jobExportUrl } from "../api";
+import { REPORTS_AVAILABLE, classify, classifyBatch, classifyFile, downloadReport, getJob, type ReportKind } from "../api";
 import { HistoryList } from "../components/HistoryList";
 import { HowItWorks } from "../components/HowItWorks";
 import { ResultsSummary } from "../components/ResultsSummary";
+import { SummaryBlock } from "../components/SummaryBlock";
 import { ResultsTable } from "../components/ResultsTable";
 import { downloadCsv, downloadTemplate } from "../exportCsv";
 import { addToHistory, clearHistory, loadHistory, removeFromHistory, type HistoryEntry } from "../history";
@@ -26,6 +27,7 @@ export function CheckPage() {
   const [jobId, setJobId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const [reportBusy, setReportBusy] = useState<ReportKind | null>(null);
   const [history, setHistory] = useState<HistoryEntry[]>(loadHistory);
   const runId = useRef(0);
 
@@ -115,12 +117,43 @@ export function CheckPage() {
     setBusy(false);
     setError(null);
     setProgress(null);
-    setJobId(null); // у сохранённых результатов нет задачи на backend → выгрузка в CSV
+    setJobId(null); // у сохранённых результатов нет задачи на backend → отчёт строится по наименованиям
     setResults(e.results);
     setFilter("all");
   };
 
-  const exportUrl = jobId ? jobExportUrl(jobId) : null;
+  // Отчёт Excel или Word: по задаче пакета, а у одиночной проверки и результатов из истории — по наименованиям
+  const onReport = async (kind: ReportKind) => {
+    if (!results) return;
+    setReportBusy(kind);
+    setError(null);
+    try {
+      await downloadReport(kind, jobId, results.map((r) => r.input));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setReportBusy(null);
+    }
+  };
+
+  const reportButtons = results && (
+    <Group gap={6} className="no-print">
+      {REPORTS_AVAILABLE ? (
+        <>
+          <Button variant="filled" loading={reportBusy === "xlsx"} disabled={reportBusy !== null} onClick={() => onReport("xlsx")}>
+            Скачать отчёт (Excel)
+          </Button>
+          <Button variant="light" loading={reportBusy === "docx"} disabled={reportBusy !== null} onClick={() => onReport("docx")}>
+            Отчёт Word
+          </Button>
+        </>
+      ) : (
+        <Button variant="light" onClick={() => downloadCsv(results)}>Скачать таблицу (CSV)</Button>
+      )}
+      <Button variant="default" onClick={() => window.print()}>Печать</Button>
+    </Group>
+  );
+
   const tooMany = names.length > LIMIT;
   const shown = results?.filter((r) => matchesFilter(r, filter)) ?? [];
 
@@ -128,13 +161,13 @@ export function CheckPage() {
     <Stack gap="lg">
       <div>
         <Title order={2}>Проверка товаров по ПП № 1875</Title>
-        <Text c="dimmed" mt={4}>
+        <Text c="dimmed" mt={4} className="no-print">
           Введите наименования товаров — каждое с новой строки (до {LIMIT}) — или перетащите сюда таблицу Excel/CSV.
           Система подберёт код ОКПД2 и покажет, действует ли запрет, ограничение или преимущество.
         </Text>
       </div>
 
-      <Paper p="lg" className="drop-target" data-dragging={dragging || undefined} {...dragProps}>
+      <Paper p="lg" className="drop-target no-print" data-dragging={dragging || undefined} {...dragProps}>
         {dragging && <div className="drop-target__overlay">Отпустите файл, чтобы проверить список</div>}
         <Stack gap="sm">
           <Textarea
@@ -184,14 +217,17 @@ export function CheckPage() {
 
       {results && (
         <Paper p="lg">
-          <Group justify="space-between" mb="sm" align="flex-start">
-            <ResultsSummary results={results} value={filter} onChange={setFilter} />
-            {exportUrl ? (
-              <Button component="a" href={exportUrl} variant="light">Скачать Excel</Button>
-            ) : (
-              <Button variant="light" onClick={() => downloadCsv(results)}>Скачать таблицу (CSV)</Button>
-            )}
-          </Group>
+          {results.length > 1 ? (
+            // список — блок-сводка: доли по режимам, ручная проверка, наименьшая уверенность, отчёт
+            <Box mb="md">
+              <SummaryBlock results={results} filter={filter} onFilter={setFilter} actions={reportButtons} />
+            </Box>
+          ) : (
+            <Group justify="space-between" mb="sm" align="flex-start">
+              <ResultsSummary results={results} value={filter} onChange={setFilter} />
+              {reportButtons}
+            </Group>
+          )}
           {shown.length > 0 ? (
             // key: при смене фильтра сбрасываем раскрытые строки (они по индексу)
             <ResultsTable key={filter} results={shown} />
@@ -203,12 +239,14 @@ export function CheckPage() {
 
       {!results && !busy && <HowItWorks />}
 
+      <div className="no-print">
       <HistoryList
         entries={history}
         onOpen={openHistory}
         onRemove={(id) => setHistory(removeFromHistory(id))}
         onClear={() => setHistory(clearHistory())}
       />
+      </div>
     </Stack>
   );
 }

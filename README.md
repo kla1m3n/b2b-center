@@ -10,6 +10,30 @@
 > Статус: готовы данные, БД, сверка с ПП (ред. на 30.09.2026), ИИ-конвейер с дообученной моделью поиска, API, сайт и видео.
 > Дальше — финальный замер на `holdout`.
 
+## Второй тур: отчёт для специалиста и обоснование по товару
+
+**Задача A — сводный отчёт по списку.** После проверки списка над таблицей появляется блок-сводка:
+- сколько позиций и какая их доля под запретом, ограничением, преимуществом и вне приложений (полоса и счётчики,
+  клик по счётчику — фильтр);
+- сколько позиций требуют ручной проверки, кнопка «Показать только их», пять позиций с наименьшей уверенностью;
+- у каждой позиции — рекомендация «что делать» (в строке — коротко, в подробностях — полностью);
+- «Скачать отчёт (Excel)»: лист «Сводка» (режимы и доли, позиции для ручной проверки с рекомендацией, наименьшая
+  уверенность) и лист «Результаты» (все позиции, рекомендация, альтернативные коды и их режим);
+- «Отчёт Word»: сводка, позиции для ручной проверки и обоснование по каждой позиции; «Печать» — то же на бумагу или в PDF.
+
+**Задача B — один товар с объяснением.** В подробностях результата (у одного товара раскрыты сразу):
+- рекомендация по действию с номером пункта ПП;
+- альтернативные коды ОКПД2 с **их** режимом и пунктом ПП и пометкой «режим другой» — видно, что при другом коде
+  изменится и режим;
+- готовое обоснование для документации или служебной записки: наименование, код и его официальное название, совпавший
+  фрагмент, режим и пункты со ссылкой на ПП, уверенность, альтернативы, рекомендация. Кнопки «Скопировать текст»,
+  «Скачать .txt», «Скачать Word».
+
+Рекомендации и обоснование строятся шаблонами из уже определённых кода и пунктов ПП (`backend/app/report.py`), без ИИ:
+текст воспроизводим, режим по-прежнему определяет только сверка кода с постановлением. Проверки — в
+`backend/tests/test_report.py`, `test_exports.py`, `tests/classifier/test_pipeline.py` (режим альтернатив) и
+`frontend/src/tour2.test.tsx`. Запуск по-прежнему одной командой, новых зависимостей нет.
+
 ## Запуск
 
 Нужен Docker Desktop.
@@ -165,6 +189,17 @@ curl -X POST http://localhost:8080/api/classify \
 - `verdict`: `ban` (запрет, прил. 1), `restriction` (ограничение, прил. 2), `advantage` (прил. 3), `none` (не входит в приложения).
 - `npa_matches` — все пункты ПП с текстом и ссылкой; `item_id` — для `GET /api/npa/items/{id}`.
 - `npa_source_url` — текст действующей редакции ПП; есть у любого результата, в том числе `none`.
+- `alternatives[]` — другие возможные коды; у каждого `verdict` и `npa_matches` (режим и пункты ПП **этого** кода)
+  и `regime_differs: true`, если режим отличается от выбранного.
+- `recommendation` — что делать при таком режиме; `justification` — готовый текст обоснования;
+  `matched_text` — формулировка классификатора, с которой совпал товар; `npa_version` — редакция ПП.
+
+**Обоснование по одному товару документом Word**
+
+```bash
+curl -X POST http://localhost:8080/api/classify/justification.docx \
+  -H "Content-Type: application/json" -d '{"name": "Бумага офисная А4"}' -o obosnovanie.docx
+```
 
 **Список до 100 товаров** — JSON или файл `.xlsx` / `.csv` / `.txt` (обработка в очереди, ответ `202`)
 
@@ -180,14 +215,28 @@ curl -X POST http://localhost:8080/api/classify/batch -F "file=@spec.xlsx"
 Больше 100 товаров → `422 «Не более 100 товаров за один запрос»`. В файле можно оставить шапку, номера и количество —
 колонка с наименованиями находится автоматически.
 
-**Статус и результаты пакета, выгрузка в Excel**
+**Статус, результаты и сводка пакета, отчёты Excel и Word**
 
 ```bash
 curl http://localhost:8080/api/jobs/8f0c…
-# {"job_id":"8f0c…","status":"running","total":3,"done":2,"error":null,"results":null}
+# {"job_id":"8f0c…","status":"running","total":3,"done":2,"error":null,"results":null,"summary":null}
 # status: queued → running → done (results — массив, как у /api/classify) или failed (причина в error)
+# при done — summary: {"total":3,"errors":0,
+#   "by_regime":[{"regime":"ban","label":"Запрет","count":0,"share":0.0}, {"regime":"restriction",…,"count":2,"share":0.6667}, …],
+#   "needs_review":1,"needs_review_share":0.3333,
+#   "lowest_confidence":[{"idx":3,"input":"Хлеб пшеничный","code":"10.71.11.111","verdict":"none","confidence":0.71}, …]}
 
-curl -o results.xlsx http://localhost:8080/api/jobs/8f0c…/export.xlsx   # после status = done
+curl -o report.xlsx http://localhost:8080/api/jobs/8f0c…/export.xlsx   # после done: листы «Сводка» и «Результаты»
+curl -o report.docx http://localhost:8080/api/jobs/8f0c…/report.docx   # сводка, ручная проверка, обоснования
+```
+
+Те же отчёты сразу по списку, без задачи (до 100 товаров; уже проверенные берутся из кэша):
+
+```bash
+curl -X POST http://localhost:8080/api/report.xlsx -H "Content-Type: application/json" \
+  -d '{"names": ["Ноутбук Lenovo IdeaPad 15", "Щебень гранитный"]}' -o report.xlsx
+curl -X POST http://localhost:8080/api/report.docx -H "Content-Type: application/json" \
+  -d '{"names": ["Ноутбук Lenovo IdeaPad 15", "Щебень гранитный"]}' -o report.docx
 ```
 
 **База НПА: редакции, пункт, загрузка новой редакции без перезапуска**
@@ -235,7 +284,8 @@ curl -X POST http://localhost:8080/api/npa/upload \
 | `data/index/` | готовые эмбеддинги текстов поиска для моделей (`*.npz`) |
 | `data/eval/` | тестовые наборы: `dev.csv` — для настройки, `holdout.csv` — **не смотреть до финального замера** |
 | `backend/app/classifier/` | ИИ-конвейер: `embedder.py` (модель, ONNX), `retriever.py` + `lexical.py` (поиск), `normalize.py`, `spell.py`, `rerank.py`, `matcher.py` (сверка с законом) |
-| `backend/app/api/` | REST API: классификация, пакеты, Excel, база НПА |
+| `backend/app/api/` | REST API: классификация, пакеты, отчёты Excel и Word, база НПА |
+| `backend/app/report.py`, `exports.py`, `docx.py` | рекомендации, обоснование, сводка; отчёт Excel и документы Word |
 | `frontend/` | сайт (React + Vite, nginx) — см. `frontend/README.md` |
 | `backend/scripts/` | загрузка моделей (`download_models.py`), индекс (`build_index.py`), оценка точности (`eval.py`), пересчёт эталонных пунктов ПП (`relabel_npa_items.py`), замер скорости (`bench.py`) — все скрипты в `docs/contributing.md` |
 | `reports/` | результаты замеров: `eval_*_ft_avx2.md` — модель по умолчанию; оглавление — `reports/README.md`, старые замеры — `reports/archive/` |

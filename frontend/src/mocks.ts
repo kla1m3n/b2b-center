@@ -1,6 +1,9 @@
 // Заглушки API для разработки без backend. Формат ответов — как у backend/app/api/*.py.
 // Позиции ПП и коды ОКПД2 взяты из data/npa/pp1875.json и data/okpd2.csv (ред. на 30.09.2026).
+import { finalize } from "./mockReport";
+import { summarize } from "./summary";
 import type {
+  Alternative,
   ClassificationResult,
   HealthOut,
   JobOut,
@@ -84,7 +87,8 @@ const RULES: Rule[] = [
   { words: ["системный блок", "компьютер", "пк"], code: "26.20.15.120", title: "Системные блоки", confidence: 0.88 },
   { words: ["бумаг"], code: "17.12.14.110", title: "Бумага для печати", confidence: 0.91,
     alternatives: [["17.12.14.160", "Бумага для плоттеров", 0.04]] },
-  { words: ["щебен", "щебн"], code: "08.12.12.140", title: "Щебень", confidence: 0.97 },
+  { words: ["щебен", "щебн"], code: "08.12.12.140", title: "Щебень", confidence: 0.97,
+    alternatives: [["08.12.12.130", "Гравий", 0.02]] },
   { words: ["халат", "куртк", "костюм", "одежд"], code: "14.12.30.131", title: "Халаты, фартуки, жилеты и сорочки мужские производственные и профессиональные", confidence: 0.68,
     alternatives: [["14.12.30.130", "Одежда производственная и профессиональная мужская прочая", 0.21]] },
   { words: ["тумб", "стол офис", "шкаф офис", "мебел"], code: "31.01.12.150", title: "Тумбы офисные деревянные", confidence: 0.72 },
@@ -120,19 +124,29 @@ function verdictOf(matches: NpaMatch[]): Regime {
   return matches.reduce<Regime>((v, m) => (REGIME_ORDER[m.regime] < REGIME_ORDER[v] ? m.regime : v), "none");
 }
 
+const VERSION_TITLE = "ПП РФ № 1875 от 23.12.2024 (ред. на 30 сентября 2026 года)";
+
+// Режим и пункты ПП альтернативного кода — тем же сопоставлением, что и у выбранного (как matcher на backend)
+function alternative(code: string, title: string, confidence: number, chosen: Regime): Alternative {
+  const npa_matches = matchItems(code);
+  const verdict = verdictOf(npa_matches);
+  return { code, title, confidence, verdict, npa_matches, regime_differs: verdict !== chosen };
+}
+
 export function classifySync(name: string): ClassificationResult {
   const norm = name.toLowerCase().replace(/ё/g, "е").trim();
   if (!/[a-zа-я]{2,}/.test(norm)) {
-    return { input: name, okpd2: null, alternatives: [], confidence: 0, needs_review: true, npa_matches: [], verdict: "none", explanation: "", error: "Пустое или нераспознанное наименование", npa_source_url: "" };
+    return finalize({ input: name, okpd2: null, matched_text: "", alternatives: [], confidence: 0, needs_review: true, npa_matches: [], verdict: "none", explanation: "", error: "Пустое или нераспознанное наименование", npa_source_url: SOURCE_URL, npa_version: VERSION_TITLE, recommendation: "", justification: "" });
   }
   const rule = RULES.find((r) => r.words.some((w) => norm.includes(w)));
   if (!rule) {
-    return {
+    return finalize({
       input: name,
       okpd2: { code: "32.99.59.000", title: "Изделия различные прочие, не включенные в другие группировки" },
+      matched_text: "Изделия различные прочие, не включенные в другие группировки",
       alternatives: [
-        { code: "22.29.29.190", title: "Изделия пластмассовые прочие, не включенные в другие группировки", confidence: 0.07 },
-        { code: "25.99.29.190", title: "Изделия прочие из недрагоценных металлов, не включенные в другие группировки", confidence: 0.05 },
+        alternative("22.29.29.190", "Изделия пластмассовые прочие, не включенные в другие группировки", 0.07, "none"),
+        alternative("25.99.29.190", "Изделия прочие из недрагоценных металлов, не включенные в другие группировки", 0.05, "none"),
       ],
       confidence: 0.09,
       needs_review: true,
@@ -141,15 +155,19 @@ export function classifySync(name: string): ClassificationResult {
       explanation: "Наиболее близкое наименование ОКПД2: «Изделия различные прочие, не включенные в другие группировки». Вердикт по ПП № 1875: не подпадает. Код не входит в приложения 1–3 постановления: запрета и ограничения нет.",
       error: null,
       npa_source_url: SOURCE_URL,
-    };
+      npa_version: VERSION_TITLE,
+      recommendation: "",
+      justification: "",
+    });
   }
   const matches = matchItems(rule.code);
   const verdict = verdictOf(matches);
   const labels: Record<Regime, string> = { ban: "запрет", restriction: "ограничение", advantage: "преимущество", none: "не подпадает" };
-  return {
+  return finalize({
     input: name,
     okpd2: { code: rule.code, title: rule.title },
-    alternatives: (rule.alternatives ?? []).map(([code, title, confidence]) => ({ code, title, confidence })),
+    matched_text: rule.words.find((w) => norm.includes(w)) ?? rule.title,
+    alternatives: (rule.alternatives ?? []).map(([code, title, confidence]) => alternative(code, title, confidence, verdict)),
     confidence: rule.confidence,
     needs_review: rule.confidence < 0.8, // как needs_review_threshold на backend
     npa_matches: matches,
@@ -158,12 +176,15 @@ export function classifySync(name: string): ClassificationResult {
       + (matches.length ? "" : " Код не входит в приложения 1–3 постановления: запрета и ограничения нет."),
     error: null,
     npa_source_url: SOURCE_URL,
-  };
+    npa_version: VERSION_TITLE,
+    recommendation: "",
+    justification: "",
+  });
 }
 
 export async function getHealth(): Promise<HealthOut> {
   await delay(150);
-  return { status: "ok", db: true, models: true, npa_version: "ПП РФ № 1875 от 23.12.2024 (ред. на 30 сентября 2026 года)", npa_upload_protected: true };
+  return { status: "ok", db: true, models: true, npa_version: VERSION_TITLE, npa_upload_protected: true };
 }
 
 export async function classify(name: string): Promise<ClassificationResult> {
@@ -233,20 +254,22 @@ export async function getJob(id: string): Promise<JobOut> {
   if (!job) throw new Error("Задача не найдена");
   const done = Math.min(job.names.length, Math.floor((Date.now() - job.startedAt) / 150));
   const finished = done >= job.names.length;
+  const results = finished ? job.names.map(classifySync) : null;
   return {
     job_id: id,
     status: finished ? "done" : done === 0 ? "queued" : "running",
     total: job.names.length,
     done,
     error: null,
-    results: finished ? job.names.map(classifySync) : null,
+    results,
+    summary: results ? summarize(results) : null,
   };
 }
 
 // --- база НПА ---
 
 const versions: NpaVersion[] = [
-  { id: 1, title: "ПП РФ № 1875 от 23.12.2024 (ред. на 30 сентября 2026 года)", source_url: SOURCE_URL, uploaded_at: "2026-10-14T09:00:00Z", status: "ready", is_active: true, items_count: 902, error: null,
+  { id: 1, title: VERSION_TITLE, source_url: SOURCE_URL, uploaded_at: "2026-10-14T09:00:00Z", status: "ready", is_active: true, items_count: 902, error: null,
     warnings: ["Код 26.80.13.000 отсутствует в справочнике ОКПД2", "Код 25.99.26.000 отсутствует в справочнике ОКПД2"] },
 ];
 

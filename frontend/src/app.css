@@ -122,3 +122,40 @@
   pointer-events: none;
   z-index: 2;
 }
+
+/* Текст обоснования: как в документе — с переносами строк, без горизонтальной прокрутки */
+.justification {
+  margin: 0;
+  padding: 10px 12px;
+  max-height: 320px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--mantine-color-text);
+  background: var(--mantine-color-gray-0);
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: 4px;
+}
+
+/* Печать (и «Сохранить как PDF»): только сводка и результаты, без формы, истории и навигации */
+@media print {
+  .no-print,
+  .topbar,
+  .nav {
+    display: none !important;
+  }
+  .page-content {
+    background: #fff;
+  }
+  .justification {
+    max-height: none;
+    overflow: visible;
+  }
+  .mantine-Paper-root {
+    box-shadow: none;
+    padding: 0;
+  }
+}

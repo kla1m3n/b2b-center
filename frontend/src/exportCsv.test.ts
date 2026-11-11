@@ -9,9 +9,9 @@ describe("resultsToCsv", () => {
     const csv = resultsToCsv([classifySync('Ноутбук "Lenovo"; 15"')]);
     const [header, row] = csv.slice(1).split(CRLF);
     expect(csv.startsWith(BOM)).toBe(true);
-    expect(header).toBe("Товар;Код ОКПД2;Наименование ОКПД2;Режим;Приложение;Пункт;Уверенность, %;Проверить вручную");
+    expect(header).toBe("Товар;Код ОКПД2;Наименование ОКПД2;Режим;Приложение;Пункт;Уверенность, %;Проверить вручную;Рекомендация");
     expect(row.startsWith('"Ноутбук ""Lenovo""; 15"""')).toBe(true);
-    expect(row).toContain("ОГРАНИЧЕНИЕ;2;2:195, 3:37;93;");
+    expect(row).toContain('ОГРАНИЧЕНИЕ;2;2:195, 3:37;93;;"Действует ограничение закупок иностранных товаров (прил. № 2, п. 195)');
   });
 
   it("«не подпадает»: в колонке пунктов — пометка, а не пустота", () => {

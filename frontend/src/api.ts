@@ -1,4 +1,5 @@
 // Клиент API. При VITE_USE_MOCKS=true все вызовы уходят в заглушки (src/mocks.ts).
+import { saveBlob } from "./download";
 import * as mocks from "./mocks";
 import type { ClassificationResult, HealthOut, JobOut, NpaItemDetails, NpaVersion } from "./types";
 
@@ -50,9 +51,39 @@ export function getJob(id: string): Promise<JobOut> {
   return USE_MOCKS ? mocks.getJob(id) : request(`/jobs/${id}`);
 }
 
-/** Ссылка на Excel с результатами пакета (backend, только для status = "done"). В режиме заглушек недоступно. */
-export function jobExportUrl(id: string): string | null {
-  return USE_MOCKS ? null : `/api/jobs/${id}/export.xlsx`;
+async function requestBlob(path: string, init?: RequestInit): Promise<Blob> {
+  const r = await fetch(`/api${path}`, init);
+  if (!r.ok) {
+    let msg = `Не удалось сформировать файл (${r.status})`;
+    try {
+      const body = await r.json();
+      if (typeof body?.detail === "string") msg = body.detail;
+    } catch {
+      /* тело не JSON — оставляем общее сообщение */
+    }
+    throw new ApiError(msg);
+  }
+  return r.blob();
+}
+
+export type ReportKind = "xlsx" | "docx";
+
+/** Отчёты Excel и Word формирует backend; в режиме заглушек их нет (остаются CSV и текст обоснования). */
+export const REPORTS_AVAILABLE = !USE_MOCKS;
+
+/** Отчёт по списку: Excel (сводка + результаты) или Word (сводка, ручная проверка, обоснования).
+ *  У пакета есть задача на backend — отчёт берётся по ней; у одиночной проверки и результатов из истории
+ *  задачи нет — отчёт строится по наименованиям (проверенные товары backend берёт из кэша). */
+export async function downloadReport(kind: ReportKind, jobId: string | null, names: string[]): Promise<void> {
+  const blob = jobId
+    ? await requestBlob(`/jobs/${jobId}/${kind === "xlsx" ? "export.xlsx" : "report.docx"}`)
+    : await requestBlob(`/report.${kind}`, json({ names }));
+  saveBlob(blob, `pp1875-otchet.${kind}`);
+}
+
+/** Обоснование по одному товару документом Word. */
+export async function downloadJustification(name: string): Promise<void> {
+  saveBlob(await requestBlob("/classify/justification.docx", json({ name })), "pp1875-obosnovanie.docx");
 }
 
 export function getNpaVersions(): Promise<NpaVersion[]> {

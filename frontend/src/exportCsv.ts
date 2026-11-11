@@ -1,10 +1,10 @@
 // Выгрузка результатов в CSV, который Excel открывает без мастера импорта (UTF-8 с BOM, разделитель «;»).
-// Колонки как у backend-экспорта .xlsx. Нужна для одиночной проверки (у неё нет задачи на backend,
-// значит нет /api/jobs/{id}/export.xlsx) и в режиме заглушек.
+// Нужна в режиме заглушек (без backend нет отчётов Excel и Word) и как простая таблица для своих расчётов.
 import { REGIME_LABELS, type ClassificationResult } from "./types";
 import { confidencePct } from "./confidence";
+import { saveBlob } from "./download";
 
-const HEADER = ["Товар", "Код ОКПД2", "Наименование ОКПД2", "Режим", "Приложение", "Пункт", "Уверенность, %", "Проверить вручную"];
+const HEADER = ["Товар", "Код ОКПД2", "Наименование ОКПД2", "Режим", "Приложение", "Пункт", "Уверенность, %", "Проверить вручную", "Рекомендация"];
 
 function cell(v: string | number): string {
   const s = String(v);
@@ -23,19 +23,14 @@ export function resultsToCsv(results: ClassificationResult[]): string {
       r.error ? "" : r.npa_matches.map((m) => `${m.appendix}:${m.item_no}`).join(", ") || "не входит в прил. 1–3",
       r.error ? "" : confidencePct(r.confidence),
       r.needs_review ? "да" : "",
+      r.recommendation,
     ];
   });
   return "﻿" + [HEADER, ...rows].map((row) => row.map(cell).join(";")).join("\r\n");
 }
 
 export function downloadCsv(results: ClassificationResult[], filename = "pp1875-results.csv"): void {
-  const blob = new Blob([resultsToCsv(results)], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
+  saveBlob(new Blob([resultsToCsv(results)], { type: "text/csv;charset=utf-8" }), filename);
 }
 
 // Шаблон для загрузки списка: backend сам находит колонку с наименованиями и пропускает шапку (io_files.read_names)
@@ -49,10 +44,5 @@ const TEMPLATE_ROWS = [
 
 export function downloadTemplate(): void {
   const csv = "\uFEFF" + TEMPLATE_ROWS.map((row) => row.map(cell).join(";")).join("\r\n");
-  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "shablon-tovary.csv";
-  a.click();
-  URL.revokeObjectURL(url);
+  saveBlob(new Blob([csv], { type: "text/csv;charset=utf-8" }), "shablon-tovary.csv");
 }

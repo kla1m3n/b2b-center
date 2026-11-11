@@ -2,7 +2,9 @@
 // (приватный режим, запрет сайтам) — тогда история просто не сохраняется.
 import type { ClassificationResult } from "./types";
 
-const KEY = "pp1875.history.v1";
+// v2: у результатов появились рекомендация, обоснование и режим альтернатив — записи прежнего формата не читаем
+const KEY = "pp1875.history.v2";
+const OLD_KEYS = ["pp1875.history.v1"];
 const MAX_ENTRIES = 10;
 
 export interface HistoryEntry {
@@ -14,6 +16,7 @@ export interface HistoryEntry {
 
 export function loadHistory(): HistoryEntry[] {
   try {
+    OLD_KEYS.forEach((k) => localStorage.removeItem(k));
     const raw = localStorage.getItem(KEY);
     const parsed = raw ? JSON.parse(raw) : [];
     return Array.isArray(parsed) ? parsed : [];

@@ -22,10 +22,10 @@ describe("фильтры результатов", () => {
   it("клик по счётчику включает фильтр, повторный — снимает", () => {
     const onChange = vi.fn();
     const { rerender } = render(<ResultsSummary results={batch} value="all" onChange={onChange} />);
-    fireEvent.click(screen.getByText("Запрет: 1"));
+    fireEvent.click(screen.getByText("Запрет: 1 · 17%")); // счётчик с долей от всех позиций
     expect(onChange).toHaveBeenLastCalledWith("ban");
     rerender(<ResultsSummary results={batch} value="ban" onChange={onChange} />);
-    fireEvent.click(screen.getByText("Запрет: 1"));
+    fireEvent.click(screen.getByText("Запрет: 1 · 17%"));
     expect(onChange).toHaveBeenLastCalledWith("all");
   });
 });

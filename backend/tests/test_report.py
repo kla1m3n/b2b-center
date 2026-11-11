@@ -5,10 +5,11 @@ from app.schemas import Alternative, ClassificationResult, NpaMatch, Okpd2Ref, R
 URL = "https://example.org/pp1875"
 
 
-def npa(appendix: int, item_no: str, title: str = "Позиция", quota: int | None = None, cond: bool = False) -> NpaMatch:
+def npa(appendix: int, item_no: str, title: str = "Позиция", quota: int | None = None, cond: bool = False,
+        note: str = "") -> NpaMatch:
     regime = {1: Regime.ban, 2: Regime.restriction, 3: Regime.advantage}[appendix]
     return NpaMatch(regime=regime, appendix=appendix, item_no=item_no, title=title, matched_code="26.20.11",
-                    quota=quota, has_conditions=cond, source_url=URL)
+                    quota=quota, has_conditions=cond, note=note, source_url=URL)
 
 
 def result(verdict: Regime, matches=(), conf: float = 0.93, review: bool = False, alternatives=(), **kw) -> ClassificationResult:
@@ -152,3 +153,45 @@ def test_appendix3_is_named_minimum_share_not_advantage():
 
     assert REGIME_LABELS[Regime.advantage] == "МИН. ДОЛЯ"
     assert report.REGIME_NAMES[Regime.advantage] == "Минимальная доля"
+
+
+# Примечания ПП № 1428 (data/npa/pp1875.json): позиции прил. 2, которые переходят в запрет
+FURNITURE = ("Внимание: с 01.07.2027 — запрет (прил. 1, поз. 136(1)), позиция исключается из прил. 2 "
+             "(ПП от 30.10.2026 N 1428)")
+BATTERIES = ("Внимание: для закупок с извещениями с 01.01.2027 — запрет (прил. 1, поз. 31(1-1)), позиция исключается "
+             "из прил. 2 (ПП от 30.10.2026 N 1428)")
+
+
+def test_upcoming_change_is_in_justification_and_recommendation():
+    """Специалист копирует обоснование в документацию: о будущем запрете он должен узнать из текста, а не только
+    из подробностей на сайте."""
+    r = result(Regime.restriction, [npa(2, "139", "Мебель", note=FURNITURE), npa(3, "232", quota=50)])
+    lines = r.justification.splitlines()
+    warn = [x for x in lines if x.startswith("Внимание")]
+    assert warn == ["Внимание, предстоящее изменение (прил. № 2, п. 139): с 01.07.2027 — запрет (прил. 1, поз. 136(1)), "
+                    "позиция исключается из прил. 2 (ПП от 30.10.2026 N 1428)."]
+    # строка — сразу после пунктов постановления, до источника
+    assert lines.index(warn[0]) < next(i for i, x in enumerate(lines) if x.startswith("Источник:"))
+    assert ("Для извещений, размещаемых с 01.07.2027, режим изменится на «запрет» (прил. 1, поз. 136(1)): "
+            "проверьте дату извещения.") in r.recommendation
+    assert "ограничение закупок иностранных товаров (прил. № 2, п. 139)" in r.recommendation  # текущий режим — прежний
+
+
+def test_upcoming_change_wording_for_notice_date():
+    r = result(Regime.restriction, [npa(2, "190", "Аккумуляторы", note=BATTERIES)])
+    assert "Для извещений, размещаемых с 01.01.2027, режим изменится на «запрет» (прил. 1, поз. 31(1-1))"         in r.recommendation
+    assert "Внимание, предстоящее изменение (прил. № 2, п. 190): для закупок с извещениями с 01.01.2027" in r.justification
+
+
+def test_ordinary_notes_are_not_warnings():
+    # история редакций и условия применения — не предупреждения: в тексте их нет
+    notes = ["(в ред. Постановления Правительства РФ от 13.07.2026 N 881)",
+             "введена Постановлением Правительства РФ от 25.09.2026 N 1236 Применяется с 01.10.2026"]
+    r = result(Regime.restriction, [npa(2, "195", note=notes[0]), npa(3, "37", quota=80, note=notes[1])])
+    assert "Внимание" not in r.justification and "режим изменится" not in r.recommendation
+
+
+def test_warning_without_recognizable_date_still_shown():
+    r = result(Regime.restriction, [npa(2, "195", note="Внимание: позиция будет изменена")])
+    assert "Внимание, предстоящее изменение (прил. № 2, п. 195): позиция будет изменена." in r.justification
+    assert "У пункта (прил. № 2, п. 195) есть предстоящее изменение — сверьте с текстом ПП." in r.recommendation

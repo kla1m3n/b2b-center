@@ -5,6 +5,7 @@
 и исключения конкретной позиции специалист сверяет по тексту ПП (ссылка — в каждом результате).
 """
 import math
+import re
 from collections.abc import Sequence
 
 from app.schemas import (Alternative, ClassificationResult, LowConfidenceItem, NpaMatch, Regime, RegimeShare,
@@ -75,6 +76,28 @@ def _quota_note(matches: Sequence[NpaMatch], also: bool) -> str:
             f"минимальная обязательная доля товаров российского происхождения{share}; учитывайте закупку при расчёте доли.")
 
 
+WARNING = "Внимание:"  # так начинается примечание позиции о предстоящем переносе в другое приложение (ПП № 1428)
+# «с 01.07.2027 — запрет (прил. 1, поз. 136(1))» и «для закупок с извещениями с 01.01.2027 — запрет (прил. 1, поз. 31(1-1))»
+_CHANGE = re.compile(r"с (\d{2}\.\d{2}\.\d{4}) — (запрет|ограничение)(?: \((прил\. \d+, поз\. [^\s,]+)\))?")  # номер сам со скобками: 136(1)
+
+
+def upcoming(matches: Sequence[NpaMatch]) -> list[tuple[NpaMatch, str]]:
+    """Пункты с предупреждением о предстоящем изменении и его текст без «Внимание:».
+
+    Остальные примечания (история редакций, условия применения) не предупреждения — в текст не выносятся."""
+    return [(m, m.note.strip()[len(WARNING):].strip().rstrip(".")) for m in matches
+            if m.note.strip().startswith(WARNING)]
+
+
+def _change_advice(m: NpaMatch, text: str) -> str:
+    c = _CHANGE.search(text)
+    if c is None:
+        return f"У пункта ({item_ref(m)}) есть предстоящее изменение — сверьте с текстом ПП."
+    date, regime, where = c.groups()
+    return (f"Для извещений, размещаемых с {date}, режим изменится на «{regime}»"
+            + (f" ({where})" if where else "") + ": проверьте дату извещения.")
+
+
 def recommendation(r: ClassificationResult) -> str:
     """Что делать специалисту: по режиму выбранного кода, с оговорками о ручной проверке и условиях пункта."""
     if r.error or r.okpd2 is None:
@@ -110,6 +133,7 @@ def recommendation(r: ClassificationResult) -> str:
         parts.append(quota)
     if top is not None and top.has_conditions:
         parts.append("У пункта есть дополнительные условия — сверьте товар с текстом пункта.")
+    parts += [_change_advice(m, text) for m, text in upcoming(r.npa_matches)]
     return " ".join(parts)
 
 
@@ -149,6 +173,7 @@ def justification(r: ClassificationResult) -> str:
             lines.append(f"  — остальные пункты, распространяющиеся на этот код ({hidden}), — в полном результате проверки")
     else:
         lines.append("Основание: код не входит в приложения № 1–3 постановления.")
+    lines += [f"Внимание, предстоящее изменение ({item_ref(m)}): {text}." for m, text in upcoming(r.npa_matches)]
     source = " ".join(x for x in (r.npa_version, r.npa_source_url) if x)
     if source:
         lines.append(f"Источник: {source}")

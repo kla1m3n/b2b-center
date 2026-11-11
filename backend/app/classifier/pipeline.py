@@ -24,6 +24,7 @@ from app.classifier.retriever import Candidate, retrieve
 from app.config import Settings
 from app.models import ClassificationCache, NpaVersion, Okpd2Code, Okpd2Text
 from app.npa.service import get_active_version, get_items
+from app.report import finalize
 from app.schemas import REGIME_LABELS, Alternative, ClassificationResult, NpaMatch, Okpd2Ref, Regime
 
 EMPTY_ERROR = "Пустое или нераспознанное наименование"
@@ -140,7 +141,8 @@ class Pipeline:
                 self._items = {version_id: get_items(session, version_id)}  # держим только одну версию
             return self._items[version_id]
 
-    def _result(self, name: str, cands: list[Candidate], matches: list[NpaMatch]) -> dict:
+    def _result(self, name: str, cands: list[Candidate], matches: list[NpaMatch],
+                alt_matches: list[list[NpaMatch]] | None = None) -> dict:
         coef = self.s.confidence_coef
         best = cands[0]
         second = cands[1].score if len(cands) > 1 else 0.0
@@ -155,8 +157,11 @@ class Pipeline:
         return ClassificationResult(
             input=name,
             okpd2=Okpd2Ref(code=best.code, title=best.title),
+            matched_text=best.matched_text,
             alternatives=[Alternative(code=c.code, title=c.title,
-                                      confidence=round(calibrated(c.score, best.score, coef), 4)) for c in cands[1:4]],
+                                      confidence=round(calibrated(c.score, best.score, coef), 4),
+                                      verdict=verdict(am), npa_matches=am, regime_differs=verdict(am) != v)
+                          for c, am in zip(cands[1:4], alt_matches or [[]] * 3)],
             confidence=round(conf, 4),
             needs_review=conf < self.s.needs_review_threshold,
             npa_matches=matches,
@@ -170,6 +175,7 @@ class Pipeline:
             version = session.get(NpaVersion, npa_version_id) if npa_version_id else get_active_version(session)
             vid = version.id if version else 0
             source_url = version.source_url if version else ""
+            version_title = version.title if version else ""
             todo = sorted({n for n in norms if _has_word.search(n)})
             cached = {c.norm_name: c.result for c in session.scalars(
                 select(ClassificationCache).where(ClassificationCache.npa_version == vid,
@@ -187,13 +193,17 @@ class Pipeline:
             if norm in by_norm:
                 cached_res = by_norm[norm]
                 # Пометку пересчитываем: кэш живёт дольше настройки порога (NEEDS_REVIEW_THRESHOLD)
-                out.append(ClassificationResult.model_validate({
+                res = ClassificationResult.model_validate({
                     **cached_res, "input": name,
                     "needs_review": cached_res["confidence"] < self.s.needs_review_threshold,
                     "npa_source_url": source_url,  # и для ответов из кэша, сохранённых до появления поля
-                }))
+                    "npa_version": version_title,
+                })
             else:
-                out.append(ClassificationResult(input=name, error=EMPTY_ERROR, needs_review=True, verdict=Regime.none))
+                res = ClassificationResult(input=name, error=EMPTY_ERROR, needs_review=True, verdict=Regime.none,
+                                           npa_source_url=source_url, npa_version=version_title)
+            # рекомендация и обоснование зависят от пометки «проверьте вручную» — строятся после неё, в кэш не идут
+            out.append(finalize(res))
         return out
 
     def _classify_unique(self, session: Session, norms: list[str], version: NpaVersion | None) -> dict[str, dict]:
@@ -222,7 +232,9 @@ class Pipeline:
             if self.s.verdict_vote and items:
                 cands = self._vote(q, cands, items)
             matches = rank_by_overlap(norm, match(cands[0].code, items, source_url))
-            out[norm] = self._result(norm, cands, matches)
+            # режим и пункты ПП альтернативных кодов — тем же matcher: при другом коде режим может быть другим
+            alt_matches = [rank_by_overlap(norm, match(c.code, items, source_url)) for c in cands[1:4]]
+            out[norm] = self._result(norm, cands, matches, alt_matches)
         return out
 
 

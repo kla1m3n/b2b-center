@@ -1,14 +1,9 @@
-"""Импорт списка товаров из файлов (.xlsx, .csv, .txt) и экспорт результатов в Excel."""
+"""Импорт списка товаров из файлов (.xlsx, .csv, .txt). Выгрузка результатов — app/exports.py."""
 import csv
 import io
-import math
 import re
-from collections.abc import Sequence
 
-from openpyxl import Workbook, load_workbook
-from openpyxl.styles import Font, PatternFill
-
-from app.schemas import REGIME_LABELS, ClassificationResult
+from openpyxl import load_workbook
 
 HEADER_WORDS = re.compile(r"^(№|n|наименование|название|товар|продукция|позиция|предмет|name|item)", re.IGNORECASE)
 _has_letters = re.compile(r"[a-zа-яё]{2,}", re.IGNORECASE)
@@ -72,37 +67,3 @@ def read_names(filename: str, data: bytes) -> list[str]:
     if ext == "txt":
         return [line.strip() for line in _decode(data).splitlines() if _has_letters.search(line)]
     raise FileReadError("Неподдерживаемый формат файла: загрузите .xlsx, .csv или .txt")
-
-
-EXPORT_COLUMNS = ["Товар", "Код ОКПД2", "Наименование ОКПД2", "Режим ПП 1875", "Пункты ПП 1875",
-                  "Уверенность, %", "Проверить вручную", "Пояснение"]
-REGIME_FILL = {"ban": "F8D7DA", "restriction": "FFF3CD", "advantage": "D6E4FF", "none": "D4EDDA"}
-
-
-def results_to_xlsx(results: Sequence[ClassificationResult]) -> bytes:
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Результаты"
-    ws.append(EXPORT_COLUMNS)
-    for cell in ws[1]:
-        cell.font = Font(bold=True)
-    for r in results:
-        items = "; ".join(
-            f"прил. {m.appendix} п. {m.item_no}" + (f" (доля {m.quota}%)" if m.quota else "") for m in r.npa_matches
-        )
-        ws.append([
-            r.input,
-            r.okpd2.code if r.okpd2 else "",
-            r.okpd2.title if r.okpd2 else "",
-            REGIME_LABELS[r.verdict],
-            items or "не входит в прил. 1–3",
-            math.floor(r.confidence * 100 + 1e-9),  # вниз, как на сайте: 0.7964 при пороге 80% — это 79%
-            "да" if r.needs_review else "нет",
-            r.error or r.explanation,
-        ])
-        ws.cell(ws.max_row, 4).fill = PatternFill("solid", fgColor=REGIME_FILL[r.verdict.value])
-    for col, width in zip("ABCDEFGH", (40, 16, 50, 16, 30, 14, 12, 60)):
-        ws.column_dimensions[col].width = width
-    buf = io.BytesIO()
-    wb.save(buf)
-    return buf.getvalue()

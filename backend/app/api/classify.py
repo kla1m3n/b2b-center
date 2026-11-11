@@ -1,15 +1,17 @@
-"""Классификация: один товар (синхронно) и пакет до 100 товаров (через очередь Celery)."""
+"""Классификация: один товар (синхронно) и пакет до 100 товаров (через очередь Celery); отчёты без задачи."""
 import json
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel, Field, ValidationError
 
 from app import state
+from app.api.jobs import DOCX, XLSX, attachment
 from app.celery_app import classify_job
 from app.classifier.pipeline import get_pipeline
 from app.config import get_settings
 from app.db import SessionLocal
+from app.exports import justification_to_docx, report_to_docx, results_to_xlsx
 from app.io_files import FileReadError, read_names
 from app.models import Job, JobItem
 from app.npa.service import get_active_version
@@ -26,11 +28,48 @@ class BatchIn(BaseModel):
     names: list[str] = Field(examples=[["Ноутбук Lenovo IdeaPad 15", "Бумага А4 500 листов", "Стул офисный"]])
 
 
-@router.post("/classify", response_model=ClassificationResult, summary="Классифицировать один товар")
-def classify(body: ClassifyIn) -> ClassificationResult:
+def _classify(names: list[str]) -> list[ClassificationResult]:
     if not state.models_ready:
         raise HTTPException(503, "Система запускается: модели ИИ загружаются, попробуйте через минуту")
-    return get_pipeline().classify_many([body.name])[0]
+    return get_pipeline().classify_many(names)
+
+
+def _report_names(body: BatchIn) -> list[str]:
+    limit = get_settings().batch_limit
+    names = [n.strip() for n in body.names if n and n.strip()]
+    if not names:
+        raise HTTPException(422, "Список товаров пуст")
+    if len(names) > limit:
+        raise HTTPException(422, f"Не более {limit} товаров за один запрос (получено {len(names)})")
+    return names
+
+
+@router.post("/classify", response_model=ClassificationResult, summary="Классифицировать один товар")
+def classify(body: ClassifyIn) -> ClassificationResult:
+    return _classify([body.name])[0]
+
+
+@router.post("/classify/justification.docx", summary="Обоснование по одному товару в Word",
+             response_class=Response, responses={200: {"content": {DOCX: {}}}})
+def classify_justification(body: ClassifyIn) -> Response:
+    """Готовый документ для закупочной документации или служебной записки: код, режим, пункт ПП со ссылкой,
+    уверенность, альтернативные коды с их режимом и рекомендация. Тот же текст — в поле `justification` ответа
+    `/api/classify`."""
+    return attachment(justification_to_docx(_classify([body.name])[0]), DOCX, "pp1875_obosnovanie.docx")
+
+
+@router.post("/report.xlsx", summary="Отчёт в Excel по списку товаров без создания задачи",
+             response_class=Response, responses={200: {"content": {XLSX: {}}}})
+def report_xlsx(body: BatchIn) -> Response:
+    """То же, что `/api/jobs/{id}/export.xlsx`, но сразу по списку наименований (уже проверенные товары берутся
+    из кэша): для одиночной проверки и для результатов, открытых из истории."""
+    return attachment(results_to_xlsx(_classify(_report_names(body))), XLSX, "pp1875_report.xlsx")
+
+
+@router.post("/report.docx", summary="Сводный отчёт в Word по списку товаров без создания задачи",
+             response_class=Response, responses={200: {"content": {DOCX: {}}}})
+def report_docx(body: BatchIn) -> Response:
+    return attachment(report_to_docx(_classify(_report_names(body))), DOCX, "pp1875_report.docx")
 
 
 BATCH_OPENAPI = {"requestBody": {"required": True, "content": {

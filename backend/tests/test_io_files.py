@@ -1,10 +1,9 @@
 from io import BytesIO
 
 import pytest
-from openpyxl import Workbook, load_workbook
+from openpyxl import Workbook
 
-from app.io_files import FileReadError, read_names, results_to_xlsx
-from app.schemas import ClassificationResult, NpaMatch, Okpd2Ref, Regime
+from app.io_files import FileReadError, read_names
 
 
 def xlsx_bytes(rows) -> bytes:
@@ -46,18 +45,3 @@ def test_unsupported_or_broken_file_has_russian_error():
         read_names("a.pdf", b"%PDF")
     with pytest.raises(FileReadError, match="Не удалось"):
         read_names("a.xlsx", b"not excel")
-
-
-def test_results_to_xlsx_has_russian_columns_and_rows():
-    r = ClassificationResult(
-        input="Ноутбук", okpd2=Okpd2Ref(code="26.20.11.110", title="Ноутбуки"), confidence=0.92, needs_review=False,
-        verdict=Regime.restriction,
-        npa_matches=[NpaMatch(regime=Regime.restriction, appendix=2, item_no="195", title="Компьютеры",
-                              matched_code="26.20.11")],
-    )
-    ws = load_workbook(BytesIO(results_to_xlsx([r]))).active
-    header = [c.value for c in ws[1]]
-    assert header[:4] == ["Товар", "Код ОКПД2", "Наименование ОКПД2", "Режим ПП 1875"]
-    row = [c.value for c in ws[2]]
-    assert row[0] == "Ноутбук" and row[1] == "26.20.11.110" and row[3] == "ОГРАНИЧЕНИЕ"
-    assert "прил. 2 п. 195" in row[4] and row[5] == 92

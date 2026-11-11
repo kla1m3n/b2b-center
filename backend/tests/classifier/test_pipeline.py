@@ -59,6 +59,69 @@ def test_pipeline_verdict_and_references(pipeline):
 
 
 @pytest.mark.models
+def test_alternatives_have_regime_of_their_own_code(pipeline, npa_ready):
+    """Режим и пункты ПП альтернативы — то, что matcher даёт по её коду; отличие от выбранного режима помечено."""
+    from app.classifier.matcher import match, verdict
+    from app.npa.service import get_active_version, get_items
+
+    items = get_items(npa_ready, get_active_version(npa_ready).id)
+    seen = set()
+    for r in pipeline.classify_many(["Ноутбук HP ProBook 450 G9", "Монитор Samsung 27", "Бумага офисная А4", "Стол письменный"]):
+        assert r.alternatives
+        for a in r.alternatives:
+            expected = match(a.code, items)
+            assert a.verdict == verdict(expected)
+            assert [(m.appendix, m.item_no) for m in a.npa_matches] == sorted((m.appendix, m.item_no) for m in expected) \
+                or {(m.appendix, m.item_no) for m in a.npa_matches} == {(m.appendix, m.item_no) for m in expected}
+            assert a.regime_differs == (a.verdict != r.verdict)
+            assert all(m.source_url == "https://example.org/pp1875" for m in a.npa_matches)
+            seen.add(a.regime_differs)
+        # обоснование перечисляет каждую альтернативу с её режимом
+        for a in r.alternatives:
+            assert a.code in r.justification
+    assert seen  # альтернативы были
+
+
+@pytest.mark.models
+def test_result_has_recommendation_justification_and_edition(pipeline):
+    r = pipeline.classify_many(["Ноутбук HP ProBook 450 G9"])[0]
+    assert r.npa_version == "образец" and r.matched_text
+    assert "ограничение" in r.recommendation and "(прил. № 2, п. 195)" in r.recommendation
+    assert "Наименование товара: Ноутбук HP ProBook 450 G9" in r.justification
+    assert f"Код ОКПД2: {r.okpd2.code} — {r.okpd2.title}" in r.justification
+    assert "приложение № 2, пункт 195" in r.justification and "https://example.org/pp1875" in r.justification
+    assert f"Рекомендация: {r.recommendation}" in r.justification
+    # из кэша — то же самое: рекомендация и обоснование строятся после кэша
+    again = pipeline.classify_many(["ноутбук hp probook 450 g9"])[0]
+    assert again.recommendation == r.recommendation and again.justification.count("Рекомендация:") == 1
+    bad = pipeline.classify_many(["123"])[0]
+    assert bad.error and "не распознано" in bad.recommendation and bad.justification == ""
+
+
+def test_result_alternatives_regime_without_models():
+    """_result: режим альтернатив берётся из переданных пунктов ПП, без ИИ и БД."""
+    from app.classifier.pipeline import Pipeline
+    from app.classifier.retriever import Candidate
+    from app.config import get_settings
+    from app.schemas import NpaMatch
+
+    def m(appendix: int, no: str) -> NpaMatch:
+        regime = {1: Regime.ban, 2: Regime.restriction, 3: Regime.advantage}[appendix]
+        return NpaMatch(regime=regime, appendix=appendix, item_no=no, title="Позиция", matched_code="26.20")
+
+    cands = [Candidate(code=c, title=t, score=s, matched_text=t) for c, t, s in (
+        ("26.20.11.110", "Ноутбуки", 0.9), ("26.20.11.130", "Планшетные компьютеры", 0.8),
+        ("26.20.13.000", "Машины вычислительные", 0.7), ("10.71.11.110", "Хлеб", 0.3))]
+    res = Pipeline(get_settings(), None)._result(
+        "ноутбук", cands, [m(2, "195"), m(3, "37")], [[m(2, "195")], [m(1, "27"), m(3, "40")], []])
+    assert res["verdict"] == "restriction" and res["matched_text"] == "Ноутбуки"
+    assert [(a["code"], a["verdict"], a["regime_differs"]) for a in res["alternatives"]] == [
+        ("26.20.11.130", "restriction", False), ("26.20.13.000", "ban", True), ("10.71.11.110", "none", True)]
+    assert [x["item_no"] for x in res["alternatives"][1]["npa_matches"]] == ["27", "40"]
+    assert res["alternatives"][2]["npa_matches"] == []
+
+
+@pytest.mark.models
 def test_pipeline_uses_cache(pipeline, npa_ready):
     pipeline.classify_many(["бумага а4"])
     assert npa_ready.query(ClassificationCache).count() == 1

@@ -166,6 +166,8 @@ def _justification_block(doc: Document, r: ClassificationResult) -> None:
                      "в полном результате проверки на сайте.")
     else:
         doc.field("Основание", "код не входит в приложения № 1–3 постановления.")
+    for m, text in report.upcoming(r.npa_matches):
+        doc.field(f"Внимание, предстоящее изменение ({report.item_ref(m)})", f"{text}.")
     if r.npa_version or r.npa_source_url:
         doc.field("Источник", r.npa_version or r.npa_source_url, url=r.npa_source_url)
     doc.field("Уверенность классификации", f"{report.pct(r.confidence)}%"

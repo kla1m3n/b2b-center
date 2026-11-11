@@ -99,6 +99,17 @@ def test_justification_docx_is_valid_and_complete():
     assert "https://example.org/pp1875?a=1&amp;b=2" in rels and 'TargetMode="External"' in rels  # ссылка на текст ПП
 
 
+def test_justification_docx_has_upcoming_change_warning():
+    r = laptop()
+    r.npa_matches[0].note = ("Внимание: с 01.07.2027 — запрет (прил. 1, поз. 136(1)), позиция исключается из прил. 2 "
+                             "(ПП от 30.10.2026 N 1428)")
+    text = docx_text(justification_to_docx(finalize(r)))
+    assert ("Внимание, предстоящее изменение (прил. № 2, п. 195): с 01.07.2027 — запрет (прил. 1, поз. 136(1)), "
+            "позиция исключается из прил. 2 (ПП от 30.10.2026 N 1428).") in text
+    assert "Для извещений, размещаемых с 01.07.2027, режим изменится на «запрет»" in text
+    assert "Внимание" not in docx_text(justification_to_docx(laptop()))  # без примечания — строки нет
+
+
 def test_docx_escapes_special_and_control_characters():
     r = laptop(name='Ноутбук <15"> & «чехол»\x0b')
     text = docx_text(justification_to_docx(r))

@@ -14,7 +14,7 @@ REGIME_BY_APPENDIX = {1: Regime.ban, 2: Regime.restriction, 3: Regime.advantage}
 REGIME_LABELS = {
     Regime.ban: "ЗАПРЕТ",
     Regime.restriction: "ОГРАНИЧЕНИЕ",
-    Regime.advantage: "ПРЕИМУЩЕСТВО",
+    Regime.advantage: "МИН. ДОЛЯ",  # прил. № 3: минимальная обязательная доля российских товаров (223-ФЗ)
     Regime.none: "НЕ ПОДПАДАЕТ",
 }
 

@@ -9,7 +9,7 @@ describe("RegimeBadge", () => {
   it.each<[Regime, string]>([
     ["ban", "ЗАПРЕТ"],
     ["restriction", "ОГРАНИЧЕНИЕ"],
-    ["advantage", "ПРЕИМУЩЕСТВО"],
+    ["advantage", "МИН. ДОЛЯ"],  // прил. № 3 — минимальная обязательная доля, не «преимущество»
     ["none", "НЕ ПОДПАДАЕТ"],
   ])("%s → «%s»", (regime, label) => {
     render(<RegimeBadge regime={regime} />);

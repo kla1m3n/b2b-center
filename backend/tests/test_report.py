@@ -80,7 +80,7 @@ def test_justification_has_everything_the_task_asks_for():
     assert "совпало с формулировкой «ноутбук lenovo hp asus acer»" in text  # совпавший фрагмент
     assert "Режим по ПП № 1875: ограничение." in text
     assert "приложение № 2, пункт 195 (ограничение): «Компьютеры портативные», код 26.20.11" in text
-    assert "приложение № 3, пункт 37 (преимущество)" in text and "минимальная доля 80%" in text
+    assert "приложение № 3, пункт 37 (минимальная доля)" in text and "минимальная доля 80%" in text
     assert f"Источник: ПП РФ № 1875 (ред. на 30.09.2026) {URL}" in text  # ссылка
     assert "Уверенность классификации: 88%." in text
     assert "26.20.11.130 — Планшетные компьютеры: ограничение (прил. № 2, п. 195), уверенность 5%" in text
@@ -110,7 +110,7 @@ def test_summary_counts_shares_review_and_lowest_confidence():
     assert s.total == 8 and s.errors == 1
     assert [(x.regime, x.count, x.share) for x in s.by_regime] == [
         (Regime.ban, 1, 0.125), (Regime.restriction, 2, 0.25), (Regime.advantage, 1, 0.125), (Regime.none, 3, 0.375)]
-    assert [x.label for x in s.by_regime] == ["Запрет", "Ограничение", "Преимущество", "Не подпадает"]
+    assert [x.label for x in s.by_regime] == ["Запрет", "Ограничение", "Минимальная доля", "Не подпадает"]
     assert s.needs_review == 2 and s.needs_review_share == 0.25
     # наименьшая уверенность — по возрастанию, с номером позиции в списке; нераспознанные сюда не входят
     assert [(x.idx, x.input) for x in s.lowest_confidence] == [(5, "Штука"), (3, "Компьютер"), (4, "Лифт"), (2, "Ноутбук"), (8, "Батон")]
@@ -142,3 +142,13 @@ def test_wide_codes_list_main_items_only():
     items = [line for line in r.justification.splitlines() if line.startswith("  — приложение")]
     assert max(len(line) for line in items) < 300  # длинные наименования позиций сокращены
     assert short("слово " * 100).endswith("…") and len(short("слово " * 100)) <= 201 and short("коротко") == "коротко"
+
+
+def test_appendix3_is_named_minimum_share_not_advantage():
+    """Прил. № 3 ПП 1875 — перечень товаров с минимальной обязательной долей закупок российских товаров (п. 2,
+    подп. «л» п. 4: закупки по 223-ФЗ). «Преимущество» — другая мера постановления, подписывать так прил. № 3 нельзя."""
+    from app import report
+    from app.schemas import REGIME_LABELS
+
+    assert REGIME_LABELS[Regime.advantage] == "МИН. ДОЛЯ"
+    assert report.REGIME_NAMES[Regime.advantage] == "Минимальная доля"

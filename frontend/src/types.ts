@@ -5,7 +5,7 @@ export type Regime = "ban" | "restriction" | "advantage" | "none";
 export const REGIME_LABELS: Record<Regime, string> = {
   ban: "ЗАПРЕТ",
   restriction: "ОГРАНИЧЕНИЕ",
-  advantage: "ПРЕИМУЩЕСТВО",
+  advantage: "МИН. ДОЛЯ", // прил. № 3: минимальная обязательная доля, а не «преимущество» — другая мера ПП
   none: "НЕ ПОДПАДАЕТ",
 };
 

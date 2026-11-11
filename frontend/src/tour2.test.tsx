@@ -5,12 +5,12 @@ import { ResultDetails } from "./components/ResultDetails";
 import { SummaryBlock } from "./components/SummaryBlock";
 import * as download from "./download";
 import { classifySync } from "./mocks";
-import { sharePct, shortAction, summarize } from "./summary";
+import { partitionPcts, sharePct, shortAction, summarize } from "./summary";
 import { render } from "./test/render";
 import type { ClassificationResult } from "./types";
 
 const noop = () => {};
-// 8 позиций: 1 запрет, 2 ограничения, 1 преимущество, 3 «не подпадает» (одна с низкой уверенностью), 1 ошибка
+// 8 позиций: 1 запрет, 2 ограничения, 1 минимальная доля, 3 «не подпадает» (одна с низкой уверенностью), 1 ошибка
 const batch = ["Бумага А4", "Ноутбук", "Щебень", "Лифт", "Хлеб", "Батон", "Непонятная штука", "123"].map(classifySync);
 
 describe("сводка по списку", () => {
@@ -38,6 +38,17 @@ describe("сводка по списку", () => {
     expect([0, 0.004, 0.125, 0.375, 1].map(sharePct)).toEqual(["0%", "<1%", "13%", "38%", "100%"]);
   });
 
+  it("доли режимов в сумме дают ровно 100% (метод наибольшего остатка)", () => {
+    // было 50% + 38% + 13% = 101%: 37,5 и 12,5 округлялись вверх оба
+    expect(partitionPcts([4, 3, 0, 1])).toEqual([50, 38, 0, 12]);
+    expect(partitionPcts([1, 2, 1, 3, 1])).toEqual([13, 25, 12, 38, 12]);
+    expect(partitionPcts([1, 1, 1])).toEqual([34, 33, 33]);
+    expect(partitionPcts([0, 0])).toEqual([0, 0]);
+    for (const counts of [[1, 1, 1], [2, 5, 7, 9], [1, 2, 3, 4, 5, 6], [97, 1, 1, 1]]) {
+      expect(partitionPcts(counts).reduce((a, b) => a + b, 0)).toBe(100);
+    }
+  });
+
   it("короткое действие в строке таблицы зависит от режима и пометки", () => {
     expect(batch.map(shortAction)).toEqual([
       "Закупать российский товар", "Установить ограничение", "Установить ограничение", "Учесть в доле закупок",
@@ -54,6 +65,8 @@ describe("блок-сводка над таблицей", () => {
     expect(screen.getByText("Запрет: 1 · 13%")).toBeInTheDocument();
     expect(screen.getByText("Ограничение: 2 · 25%")).toBeInTheDocument();
     expect(screen.getByText("Не подпадает: 3 · 38%")).toBeInTheDocument();
+    expect(screen.getByText("Мин. доля: 1 · 12%")).toBeInTheDocument();
+    expect(screen.getByText("Не распознано: 1 · 12%")).toBeInTheDocument();  // 13 + 25 + 12 + 38 + 12 = 100
     // ручная проверка: низкая уверенность + нераспознанное наименование
     expect(screen.getByText("Требуют ручной проверки: 2 из 8 (25%)")).toBeInTheDocument();
     const lowest = screen.getAllByTestId("lowest-item");

@@ -162,7 +162,7 @@ export function classifySync(name: string): ClassificationResult {
   }
   const matches = matchItems(rule.code);
   const verdict = verdictOf(matches);
-  const labels: Record<Regime, string> = { ban: "запрет", restriction: "ограничение", advantage: "преимущество", none: "не подпадает" };
+  const labels: Record<Regime, string> = { ban: "запрет", restriction: "ограничение", advantage: "минимальная доля", none: "не подпадает" };
   return finalize({
     input: name,
     okpd2: { code: rule.code, title: rule.title },

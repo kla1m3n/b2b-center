@@ -7,7 +7,7 @@ export const REGIME_ORDER: Regime[] = ["ban", "restriction", "advantage", "none"
 export const REGIME_NAMES: Record<Regime, string> = {
   ban: "Запрет",
   restriction: "Ограничение",
-  advantage: "Преимущество",
+  advantage: "Мин. доля", // прил. № 3: минимальная обязательная доля российских товаров (223-ФЗ)
   none: "Не подпадает",
 };
 
@@ -45,6 +45,21 @@ export function summarize(results: ClassificationResult[]): ReportSummary {
       .slice(0, LOWEST_N)
       .map(({ r, idx }) => ({ idx, input: r.input, code: r.okpd2!.code, verdict: r.verdict, confidence: r.confidence })),
   };
+}
+
+/** Целые проценты частей одного списка, в сумме ровно 100 (метод наибольшего остатка): обычное округление
+ *  давало 50% + 38% + 13% = 101%. Остаток добирают части с большей дробной частью, при равенстве — с большим
+ *  числом позиций, затем — идущие раньше. */
+export function partitionPcts(counts: number[]): number[] {
+  const total = counts.reduce((a, b) => a + b, 0);
+  if (!total) return counts.map(() => 0);
+  const exact = counts.map((n) => (n * 100) / total);
+  const out = exact.map(Math.floor);
+  const order = counts.map((_, i) => i).sort((a, b) =>
+    exact[b] - out[b] - (exact[a] - out[a]) || counts[b] - counts[a] || a - b);
+  const deficit = 100 - out.reduce((a, b) => a + b, 0);
+  for (let k = 0; k < deficit; k++) out[order[k]]++;
+  return out;
 }
 
 /** Доля в процентах для подписи: целое число, но ненулевая доля не превращается в «0%». */

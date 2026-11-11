@@ -79,7 +79,7 @@ def _stems(text: str) -> set[str]:
 def rank_by_overlap(query: str, matches: list[NpaMatch]) -> list[NpaMatch]:
     """Внутри одного приложения выше позиции, чьё наименование ближе к товару по общим словам.
 
-    Порядок приложений (запрет → ограничение → преимущество) сохраняется.
+    Порядок приложений (запрет → ограничение → минимальная доля) сохраняется.
     """
     q = _stems(query)
     return sorted(matches, key=lambda m: (REGIME_ORDER[m.regime], m.appendix, -len(q & _stems(m.title))))

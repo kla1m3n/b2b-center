@@ -2,7 +2,7 @@ import { Alert, Box, Button, Group, Progress, Stack, Text, Tooltip } from "@mant
 import type { ReactNode } from "react";
 import { confidencePct } from "../confidence";
 import type { ResultFilter } from "../resultFilters";
-import { sharePct, summarize } from "../summary";
+import { partitionPcts, sharePct, summarize } from "../summary";
 import type { ClassificationResult } from "../types";
 import { REGIME_COLORS, RegimeBadge } from "./RegimeBadge";
 import { ResultsSummary } from "./ResultsSummary";
@@ -19,6 +19,8 @@ export function SummaryBlock({ results, filter, onFilter, actions }: {
   actions?: ReactNode;
 }) {
   const s = summarize(results);
+  const pcts = partitionPcts([...s.by_regime.map((x) => x.count), s.errors]); // в сумме ровно 100%
+  const label = (p: number) => `${p}%`;
   const toCheck = s.needs_review + s.errors;
   const reviewOnly = filter === "review";
   return (
@@ -32,15 +34,15 @@ export function SummaryBlock({ results, filter, onFilter, actions }: {
       </Group>
 
       <Progress.Root size={22} radius="xs" aria-label="Доли позиций по режимам">
-        {s.by_regime.filter((x) => x.count > 0).map((x) => (
-          <Tooltip key={x.regime} label={`${x.label}: ${x.count} (${sharePct(x.share)})`} withArrow>
+        {s.by_regime.map((x, i) => ({ x, p: pcts[i] })).filter(({ x }) => x.count > 0).map(({ x, p }) => (
+          <Tooltip key={x.regime} label={`${x.label}: ${x.count} (${label(p)})`} withArrow>
             <Progress.Section value={x.share * 100} color={REGIME_COLORS[x.regime]}>
-              {x.share >= 0.08 && <Progress.Label style={{ color: x.regime === "restriction" ? "#000" : undefined }}>{sharePct(x.share)}</Progress.Label>}
+              {x.share >= 0.08 && <Progress.Label style={{ color: x.regime === "restriction" ? "#000" : undefined }}>{label(p)}</Progress.Label>}
             </Progress.Section>
           </Tooltip>
         ))}
         {s.errors > 0 && (
-          <Tooltip label={`Не распознано: ${s.errors}`} withArrow>
+          <Tooltip label={`Не распознано: ${s.errors} (${label(pcts[4])})`} withArrow>
             <Progress.Section value={(s.errors / s.total) * 100} color="gray" />
           </Tooltip>
         )}

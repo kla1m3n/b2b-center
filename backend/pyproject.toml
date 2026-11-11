@@ -11,6 +11,9 @@ dependencies = [
     "psycopg[binary]==3.2.3",
     "pgvector==0.3.6",
     "celery[redis]==5.4.0",
+    # kombu 5.7.0 (03.11.2026) требует redis-py >= 6.1, а celery 5.4 ставит redis 5.x: очередь не стартует
+    "kombu==5.4.2",
+    "redis==5.2.1",
     "sentence-transformers==3.3.1",
     "transformers==4.47.1",
     "numpy==2.2.1",

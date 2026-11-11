@@ -24,3 +24,14 @@ def test_pattern_selects_matching_leaf():
 
 def test_unknown_prefix_is_unresolved():
     assert resolve(ROWS, "99.99.99", "") == []
+
+
+def test_synonyms_are_clean_phrases_fit_for_documents():
+    # Синоним, с которым совпал товар, цитируется в обосновании для закупочной документации:
+    # служебные «списки брендов» вроде «ноутбук lenovo hp asus acer» туда попадать не должны.
+    import re
+
+    from synonyms_seed import SEED
+
+    bad = [s for _, _, syns in SEED for s in syns if len(re.findall(r"[a-z]{2,}", s)) >= 3]
+    assert bad == []

@@ -28,6 +28,9 @@ from app.report import finalize
 from app.schemas import REGIME_LABELS, Alternative, ClassificationResult, NpaMatch, Okpd2Ref, Regime
 
 EMPTY_ERROR = "Пустое или нераспознанное наименование"
+# Бессмыслица («asdf», «привет»): ни одно слово не найдено в справочнике и поиск по смыслу не уверен.
+# Ближайший код у такой строки случайный — без этой пометки она попадала в сводку как «Запрет».
+UNRECOGNIZED = "Товар не распознан: ни одно слово не найдено в справочнике ОКПД2 — уточните наименование"
 _has_word = re.compile(r"[a-zа-я]{2,}")
 
 
@@ -142,11 +145,15 @@ class Pipeline:
             return self._items[version_id]
 
     def _result(self, name: str, cands: list[Candidate], matches: list[NpaMatch],
-                alt_matches: list[list[NpaMatch]] | None = None) -> dict:
+                alt_matches: list[list[NpaMatch]] | None = None, known_words: bool = True) -> dict:
+        """known_words — хотя бы одно слово запроса есть в справочнике (нашлось поиском по словам)."""
         coef = self.s.confidence_coef
         best = cands[0]
         second = cands[1].score if len(cands) > 1 else 0.0
         conf = calibrated(best.score, second, coef)
+        if not known_words and conf < self.s.needs_review_threshold:
+            return ClassificationResult(input=name, error=UNRECOGNIZED, confidence=round(conf, 4), needs_review=True,
+                                        verdict=Regime.none).model_dump(mode="json")
         v = verdict(matches)
         expl = f"Наиболее близкое наименование ОКПД2: «{best.title}»"
         if best.matched_text != best.title:
@@ -158,10 +165,12 @@ class Pipeline:
             input=name,
             okpd2=Okpd2Ref(code=best.code, title=best.title),
             matched_text=best.matched_text,
-            alternatives=[Alternative(code=c.code, title=c.title,
-                                      confidence=round(calibrated(c.score, best.score, coef), 4),
-                                      verdict=verdict(am), npa_matches=am, regime_differs=verdict(am) != v)
-                          for c, am in zip(cands[1:4], alt_matches or [[]] * 3)],
+            # по уверенности: после объединения поиска по смыслу и по словам порядок кандидатов не всегда по близости
+            alternatives=sorted((Alternative(code=c.code, title=c.title,
+                                             confidence=round(calibrated(c.score, best.score, coef), 4),
+                                             verdict=verdict(am), npa_matches=am, regime_differs=verdict(am) != v)
+                                 for c, am in zip(cands[1:4], alt_matches or [[]] * 3)),
+                                key=lambda a: -a.confidence),
             confidence=round(conf, 4),
             needs_review=conf < self.s.needs_review_threshold,
             npa_matches=matches,
@@ -207,8 +216,8 @@ class Pipeline:
         return out
 
     def _classify_unique(self, session: Session, norms: list[str], version: NpaVersion | None) -> dict[str, dict]:
+        lex = self._lexical(session)
         if self.s.spell_correction:  # исправленный текст идёт в поиск; ключ кэша — исходное нормализованное наименование
-            self._lexical(session)
             queries = [self._speller.correct(n) for n in norms]
         else:
             queries = norms
@@ -234,7 +243,7 @@ class Pipeline:
             matches = rank_by_overlap(norm, match(cands[0].code, items, source_url))
             # режим и пункты ПП альтернативных кодов — тем же matcher: при другом коде режим может быть другим
             alt_matches = [rank_by_overlap(norm, match(c.code, items, source_url)) for c in cands[1:4]]
-            out[norm] = self._result(norm, cands, matches, alt_matches)
+            out[norm] = self._result(norm, cands, matches, alt_matches, known_words=bool(lex.search(q, 1)))
         return out
 
 

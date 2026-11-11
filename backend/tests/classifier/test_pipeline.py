@@ -154,8 +154,68 @@ def test_needs_review_recomputed_for_cached_results(pipeline):
 @pytest.mark.models
 def test_every_result_links_to_npa_text(pipeline):
     # и у результата с пунктами, и у «не подпадает» (пунктов нет) — ссылка на текст редакции ПП
-    with_items, without = pipeline.classify_many(["Ноутбук HP ProBook 450 G9", "asdf"])
+    with_items, without = pipeline.classify_many(["Ноутбук HP ProBook 450 G9", "Стул офисный"])  # стульев в образце ПП нет
     assert with_items.npa_matches and with_items.npa_source_url == "https://example.org/pp1875"
     assert without.npa_source_url == "https://example.org/pp1875"
     if not without.npa_matches:
         assert "не входит в приложения 1–3" in without.explanation
+
+
+def _cands(*rows):
+    from app.classifier.retriever import Candidate
+
+    return [Candidate(code=c, title=t, score=s, matched_text=t) for c, t, s in rows]
+
+
+def _bare_pipeline():
+    from app.classifier.pipeline import Pipeline
+    from app.config import get_settings
+
+    return Pipeline(get_settings(), None)
+
+
+# близость ~0,55 при калибровке любой модели проекта — уверенность заметно ниже порога 80%
+LOW = (("16.21.13.000", "Плиты древесно-стружечные", 0.55), ("20.13.64.150", "Азиды", 0.545),
+       ("10.71.11.110", "Хлеб", 0.54), ("31.01.11.150", "Стулья", 0.535))
+
+
+def test_unrecognized_when_no_word_is_known_and_confidence_is_low():
+    """«asdf», «привет»: ни одно слово не найдено в справочнике и уверенность низкая — не выдаём код и режим,
+    иначе бессмыслица попадает в сводку как «Запрет»."""
+    from app.classifier.pipeline import UNRECOGNIZED
+
+    res = _bare_pipeline()._result("asdf", _cands(*LOW), [], [[], [], []], known_words=False)
+    assert res["error"] == UNRECOGNIZED and res["okpd2"] is None
+    assert res["verdict"] == "none" and res["alternatives"] == [] and res["npa_matches"] == []
+    assert res["needs_review"] is True and 0 < res["confidence"] < 0.8
+
+
+def test_known_word_keeps_result_even_with_low_confidence():
+    res = _bare_pipeline()._result("плита", _cands(*LOW), [], [[], [], []], known_words=True)
+    assert res["error"] is None and res["okpd2"]["code"] == "16.21.13.000" and res["needs_review"] is True
+
+
+def test_unknown_words_but_confident_result_is_kept():
+    # бренд или модель без слов справочника, но поиск по смыслу уверен — это не бессмыслица
+    cands = _cands(("26.20.11.110", "Ноутбуки", 0.95), ("26.20.11.130", "Планшеты", 0.80))
+    res = _bare_pipeline()._result("macbook", cands, [], [[]], known_words=False)
+    assert res["error"] is None and res["needs_review"] is False
+
+
+def test_alternatives_sorted_by_confidence():
+    # после объединения поиска по смыслу и по словам порядок кандидатов не всегда по близости (67%, 59%, 60%)
+    cands = _cands(("28.29.22.110", "Огнетушители", 0.95), ("20.59.52.130", "Составы", 0.90),
+                   ("26.30.50.125", "Установки", 0.86), ("23.20.13.120", "Растворы", 0.88))
+    res = _bare_pipeline()._result("огнетушитель", cands, [], [[], [], []])
+    conf = [a["confidence"] for a in res["alternatives"]]
+    assert conf == sorted(conf, reverse=True)
+    assert [a["code"] for a in res["alternatives"]] == ["20.59.52.130", "23.20.13.120", "26.30.50.125"]
+
+
+@pytest.mark.models
+def test_garbage_is_unrecognized_end_to_end(pipeline):
+    from app.classifier.pipeline import UNRECOGNIZED
+
+    garbage, real = pipeline.classify_many(["asdf", "Ноутбук HP ProBook 450 G9"])
+    assert garbage.error == UNRECOGNIZED and garbage.okpd2 is None and "не распознано" in garbage.recommendation
+    assert real.error is None and real.okpd2 is not None

@@ -134,6 +134,10 @@ export function CheckPage() {
   // Специалист выбрал другой код (или подтвердил текущий): позиция пересчитывается, сводка и отчёты — по новым данным
   const onChooseCode = async (result: ClassificationResult, code: string) => {
     const updated = await classify(result.input, code);
+    // старая версия сервера не знает поля code и молча возвращает прежний результат
+    if (!updated.code_confirmed) {
+      throw new Error("Сервер не поддерживает выбор кода: на нём запущена старая версия. Обновите сервер и повторите.");
+    }
     setResults((prev) => prev && prev.map((r) => (r === result ? updated : r)));
   };
 

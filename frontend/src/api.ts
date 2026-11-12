@@ -8,7 +8,13 @@ export const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === "true";
 export class ApiError extends Error {}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const r = await fetch(`/api${path}`, init);
+  let r: Response;
+  try {
+    r = await fetch(`/api${path}`, init);
+  } catch {
+    // сервер недоступен или нет сети — вместо «Failed to fetch» из браузера
+    throw new ApiError("Нет связи с сервером. Проверьте подключение и повторите.");
+  }
   if (!r.ok) {
     let msg = `Ошибка сервера (${r.status})`;
     try {

@@ -63,6 +63,11 @@ export function ResultDetails({ result, onOpenItem, onChooseCode }: {
         </Alert>
       )}
 
+      {chooseError && (
+        // сразу под кнопками выбора: ошибка пересчёта (нет связи с сервером, код не найден) должна быть на виду
+        <Alert color="red" variant="light" py="xs" title="Не удалось пересчитать" data-testid="choose-error">{chooseError}</Alert>
+      )}
+
       {result.code_confirmed && (
         <Badge color="teal" variant="light" radius="xs" w="fit-content" style={{ textTransform: "none" }} data-testid="code-confirmed">
           ✓ Код подтверждён специалистом{result.auto_code && result.auto_code !== result.okpd2?.code ? ` (система предлагала ${result.auto_code})` : ""}
@@ -158,8 +163,6 @@ export function ResultDetails({ result, onOpenItem, onChooseCode }: {
           </Table.ScrollContainer>
         </div>
       )}
-
-      {chooseError && <Text size="sm" c="red">{chooseError}</Text>}
 
       <JustificationBlock result={result} />
     </Stack>

@@ -231,7 +231,7 @@ class Pipeline:
         if self.s.lexical_search:
             cand_lists = [self._fuse(session, q, qv, c, lk)
                           for q, qv, c, lk in zip(queries, qvecs, cand_lists, lookups)]
-        cand_lists = [prefer_medical(q, prefer_goods(q, c)) for q, c in zip(queries, cand_lists)]
+        cand_lists = [prefer_medical(q, prefer_goods(q, c), self.s.medical_by_score) for q, c in zip(queries, cand_lists)]
         items = self._version_items(session, version.id) if version else []
         source_url = version.source_url if version else ""
         out = {}

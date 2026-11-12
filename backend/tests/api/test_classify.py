@@ -12,11 +12,24 @@ class FakePipeline:
 
     def __init__(self):
         self.calls = []
+        self.code_calls = []
 
     def classify_many(self, names, npa_version_id=None):
         self.calls.append((list(names), npa_version_id))
         return [ClassificationResult(input=n, okpd2=Okpd2Ref(code="26.20.11.110", title="Ноутбуки"),
                                      confidence=0.9, needs_review=False, verdict=Regime.restriction) for n in names]
+
+    def classify_with_codes(self, names, codes, npa_version_id=None):
+        self.code_calls.append((list(names), list(codes)))
+        out = []
+        for r, code in zip(self.classify_many(names, npa_version_id), codes):
+            if code == "99.99.99.999":
+                raise ValueError(f"Код {code} не найден в справочнике ОКПД2")
+            if code:
+                r = r.model_copy(update={"okpd2": Okpd2Ref(code=code, title="Выбранный код"), "code_confirmed": True,
+                                         "auto_code": "26.20.11.110", "verdict": Regime.none})
+            out.append(r)
+        return out
 
 
 @pytest.fixture
@@ -155,3 +168,61 @@ def test_reports_while_models_load_return_503(client, fake_pipeline, monkeypatch
                        ("/api/classify/justification.docx", {"name": "Ноутбук"})):
         r = client.post(path, json=body)
         assert r.status_code == 503 and "запускается" in r.json()["detail"], path
+
+
+def test_classify_with_code_chosen_by_specialist(client, fake_pipeline):
+    r = client.post("/api/classify", json={"name": "Ноутбук", "code": "26.20.11.130"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["okpd2"]["code"] == "26.20.11.130" and body["code_confirmed"] is True and body["auto_code"] == "26.20.11.110"
+    assert fake_pipeline.code_calls == [(["Ноутбук"], ["26.20.11.130"])]
+    # без кода — обычная классификация
+    assert client.post("/api/classify", json={"name": "Ноутбук"}).json()["code_confirmed"] is False
+    assert len(fake_pipeline.code_calls) == 1
+
+
+def test_classify_with_bad_or_unknown_code(client, fake_pipeline):
+    assert client.post("/api/classify", json={"name": "Ноутбук", "code": "не код"}).status_code == 422
+    r = client.post("/api/classify", json={"name": "Ноутбук", "code": "99.99.99.999"})
+    assert r.status_code == 422 and "не найден в справочнике" in r.json()["detail"]
+
+
+def test_reports_with_codes_chosen_by_specialist(client, fake_pipeline):
+    body = {"names": ["Ноутбук", "  ", "Монитор"], "codes": [None, "10.71.11.110", "26.20.17.110"]}
+    x = client.post("/api/report.xlsx", json=body)
+    assert x.status_code == 200
+    # пустое наименование отброшено вместе со своим кодом — коды остались у своих товаров
+    assert fake_pipeline.code_calls[-1] == (["Ноутбук", "Монитор"], [None, "26.20.17.110"])
+    from openpyxl import load_workbook
+
+    ws = load_workbook(BytesIO(x.content))["Результаты"]
+    assert ws["C3"].value == "26.20.17.110" and ws["H3"].value == "код подтверждён специалистом"
+    assert client.post("/api/report.docx", json=body).status_code == 200
+    assert client.post("/api/report.xlsx", json={"names": ["a", "b"], "codes": ["26.20"]}).status_code == 422
+    d = client.post("/api/classify/justification.docx", json={"name": "Ноутбук", "code": "26.20.11.130"})
+    assert d.status_code == 200 and _is_docx(d)
+
+
+def test_annotated_xlsx_returns_users_table_with_results(client, fake_pipeline):
+    from openpyxl import load_workbook
+
+    wb = Workbook()
+    for row in (["№", "Наименование", "Кол-во"], [1, "Ноутбук", 5], [2, "Монитор", 3]):
+        wb.active.append(row)
+    buf = BytesIO()
+    wb.save(buf)
+    files = {"file": ("spec.xlsx", buf.getvalue(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
+    r = client.post("/api/report/annotated.xlsx", files=files, data={"codes": '[null, "26.20.17.110"]'})
+    assert r.status_code == 200 and 'filename="pp1875_specification.xlsx"' in r.headers["content-disposition"]
+    out = load_workbook(BytesIO(r.content))
+    ws = out.active
+    assert [c.value for c in ws[1]][:5] == ["№", "Наименование", "Кол-во", "Код ОКПД2", "Наименование ОКПД2"]
+    assert [c.value for c in ws[2]][:4] == [1, "Ноутбук", 5, "26.20.11.110"]
+    assert ws["D3"].value == "26.20.17.110" and ws["I3"].value == "код подтверждён специалистом"
+    assert "Сводка ПП 1875" in out.sheetnames
+    # без кодов — обычная классификация; неверные входные данные — 422 с понятным текстом
+    assert client.post("/api/report/annotated.xlsx", files=files).status_code == 200
+    bad = client.post("/api/report/annotated.xlsx", files={"file": ("spec.csv", b"a;b", "text/csv")})
+    assert bad.status_code == 422 and "только в таблицу Excel" in bad.json()["detail"]
+    assert client.post("/api/report/annotated.xlsx", files=files, data={"codes": "не json"}).status_code == 422
+    assert client.post("/api/report/annotated.xlsx", data={"codes": "[]"}).status_code == 422

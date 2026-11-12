@@ -219,3 +219,36 @@ def test_garbage_is_unrecognized_end_to_end(pipeline):
     garbage, real = pipeline.classify_many(["asdf", "Ноутбук HP ProBook 450 G9"])
     assert garbage.error == UNRECOGNIZED and garbage.okpd2 is None and "не распознано" in garbage.recommendation
     assert real.error is None and real.okpd2 is not None
+
+
+@pytest.mark.models
+def test_with_code_recalculates_for_code_chosen_by_specialist(pipeline, npa_ready):
+    """Выбор кода вручную: режим и пункты — по новому коду, прежний код уходит в альтернативы, пометка снята."""
+    from app.classifier.matcher import match, verdict
+    from app.npa.service import get_active_version, get_items
+
+    items = get_items(npa_ready, get_active_version(npa_ready).id)
+    base = pipeline.classify_many(["Ноутбук HP ProBook 450 G9"])[0]
+    alt = base.alternatives[0]
+    r = pipeline.with_code(base, alt.code)
+    assert r.okpd2.code == alt.code and r.code_confirmed and not r.needs_review and r.auto_code == base.okpd2.code
+    assert r.verdict == verdict(match(alt.code, items)) and r.confidence == alt.confidence
+    assert {(m.appendix, m.item_no) for m in r.npa_matches} == {(m.appendix, m.item_no) for m in match(alt.code, items)}
+    assert r.alternatives[0].code == base.okpd2.code and r.alternatives[0].verdict == base.verdict
+    assert alt.code not in [a.code for a in r.alternatives]
+    assert all(a.regime_differs == (a.verdict != r.verdict) for a in r.alternatives)
+    assert "выбран специалистом вручную" in r.justification and base.okpd2.code in r.justification
+    # код вне списка альтернатив и вне приложений ПП: режим «не подпадает»
+    other = pipeline.with_code(base, "17.12.14.110") if npa_ready.get(__import__("app.models", fromlist=["Okpd2Code"]).Okpd2Code, "17.12.14.110") else None
+    assert other is None or (other.code_confirmed and other.confidence == 0.0 and other.auto_code == base.okpd2.code)
+    # подтверждение того же кода: результат прежний, только без пометки
+    same = pipeline.with_code(base, base.okpd2.code)
+    assert same.okpd2 == base.okpd2 and same.verdict == base.verdict and same.code_confirmed
+    assert [a.code for a in same.alternatives] == [a.code for a in base.alternatives]
+    assert "подтверждён специалистом" in same.justification
+    # второй выбор подряд помнит исходный автоматический код
+    assert pipeline.with_code(r, base.alternatives[-1].code).auto_code == base.okpd2.code
+    with pytest.raises(ValueError, match="не найден в справочнике"):
+        pipeline.with_code(base, "99.99.99.999")
+    mixed = pipeline.classify_with_codes(["Ноутбук HP ProBook 450 G9", "Бумага офисная А4"], [alt.code, None])
+    assert mixed[0].code_confirmed and mixed[0].okpd2.code == alt.code and not mixed[1].code_confirmed

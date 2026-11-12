@@ -12,7 +12,11 @@ import { ResultDetails } from "./ResultDetails";
 
 const NOWRAP = { whiteSpace: "nowrap" } as const;
 
-export function ResultsTable({ results }: { results: ClassificationResult[] }) {
+export function ResultsTable({ results, onChooseCode }: {
+  results: ClassificationResult[];
+  /** Специалист выбрал код для этой позиции — пересчитать её (см. ResultDetails). */
+  onChooseCode?: (result: ClassificationResult, code: string) => Promise<void>;
+}) {
   // Один товар — подробности сразу раскрыты: рекомендация, альтернативы и обоснование видны без клика
   const [expanded, setExpanded] = useState<Set<number>>(() => new Set(results.length === 1 && !results[0].error ? [0] : []));
   const [openItem, setOpenItem] = useState<number | null>(null);
@@ -30,7 +34,7 @@ export function ResultsTable({ results }: { results: ClassificationResult[] }) {
   if (mobile) {
     return (
       <>
-        <ResultCards results={results} expanded={expanded} onToggle={toggle} onOpenItem={setOpenItem} />
+        <ResultCards results={results} expanded={expanded} onToggle={toggle} onOpenItem={setOpenItem} onChooseCode={onChooseCode} />
         <NpaItemModal itemId={openItem} onClose={() => setOpenItem(null)} />
       </>
     );
@@ -67,6 +71,9 @@ export function ResultsTable({ results }: { results: ClassificationResult[] }) {
                     </Table.Td>
                     <Table.Td>
                       <Text size="sm" lineClamp={2}>{r.input}</Text>
+                      {r.code_confirmed && (
+                        <Badge color="teal" variant="light" size="sm" mt={4}>✓ Код подтверждён</Badge>
+                      )}
                       {r.needs_review && !r.error && (
                         <Badge color="orange" variant="light" size="sm" mt={4}>⚠ Проверьте вручную</Badge>
                       )}
@@ -109,7 +116,8 @@ export function ResultsTable({ results }: { results: ClassificationResult[] }) {
                     <Table.Tr>
                       <Table.Td />
                       <Table.Td colSpan={5}>
-                        <ResultDetails result={r} onOpenItem={setOpenItem} />
+                        <ResultDetails result={r} onOpenItem={setOpenItem}
+                          onChooseCode={onChooseCode && ((code) => onChooseCode(r, code))} />
                       </Table.Td>
                     </Table.Tr>
                   )}

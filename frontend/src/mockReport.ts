@@ -24,7 +24,7 @@ export function recommendation(r: ClassificationResult): string {
   const top = r.npa_matches.find((m) => m.regime === r.verdict);
   const ref = top ? ` (${itemRef(top)})` : "";
   const parts: string[] = [];
-  if (r.needs_review) {
+  if (r.needs_review && !r.code_confirmed) {
     parts.push(`Сначала подтвердите код ОКПД2 вручную: уверенность ${confidencePct(r.confidence)}%.`);
     const other = r.alternatives.find((a) => a.regime_differs);
     if (other) parts.push(`При коде ${other.code} режим будет другим — «${REGIME_NAMES[other.verdict].toLowerCase()}».`);
@@ -62,7 +62,11 @@ export function justification(r: ClassificationResult): string {
     `Код ОКПД2: ${r.okpd2.code} — ${r.okpd2.title}`,
   ];
   const matched = r.matched_text || r.okpd2.title;
-  lines.push(matched.trim().toLowerCase() === r.okpd2.title.trim().toLowerCase()
+  if (r.code_confirmed) {
+    lines.push(r.auto_code && r.auto_code !== r.okpd2.code
+      ? `Основание выбора кода: код выбран специалистом вручную (автоматически предлагался код ${r.auto_code}).`
+      : "Основание выбора кода: код подобран автоматически по наименованию товара и подтверждён специалистом.");
+  } else lines.push(matched.trim().toLowerCase() === r.okpd2.title.trim().toLowerCase()
     ? `Основание выбора кода: наименование товара соответствует официальному наименованию кода в ОКПД2 — «${r.okpd2.title}».`
     : `Основание выбора кода: наименование товара совпало с формулировкой «${matched}», относящейся к этому коду ОКПД2.`);
   lines.push(`Режим по ПП № 1875: ${REGIME_NAMES[r.verdict].toLowerCase()}.`);
@@ -77,8 +81,10 @@ export function justification(r: ClassificationResult): string {
   }
   const source = [r.npa_version, r.npa_source_url].filter(Boolean).join(" ");
   if (source) lines.push(`Источник: ${source}`);
-  lines.push(`Уверенность классификации: ${confidencePct(r.confidence)}%`
-    + (r.needs_review ? " — ниже порога, код требуется подтвердить вручную." : "."));
+  if (!r.code_confirmed) {
+    lines.push(`Уверенность классификации: ${confidencePct(r.confidence)}%`
+      + (r.needs_review ? " — ниже порога, код требуется подтвердить вручную." : "."));
+  }
   if (r.alternatives.length) {
     lines.push("Альтернативные коды ОКПД2 и их режим:");
     lines.push(...r.alternatives.map((a) => `  — ${altLine(a)}`));

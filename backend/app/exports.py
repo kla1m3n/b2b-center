@@ -1,13 +1,15 @@
 """Выгрузка результатов: отчёт Excel (сводка + все позиции), обоснование и сводный отчёт Word."""
 import io
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from datetime import date
 
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.utils import get_column_letter
 
 from app import report
 from app.docx import Document
+from app.io_files import FileReadError, locate_names
 from app.schemas import REGIME_LABELS, ClassificationResult
 
 EXPORT_COLUMNS = ["№", "Товар", "Код ОКПД2", "Наименование ОКПД2", "Режим ПП 1875", "Пункты ПП 1875",
@@ -34,6 +36,11 @@ def _alternatives(r: ClassificationResult) -> str:
     return "\n".join(
         f"{a.code} — {REGIME_LABELS[a.verdict]} ({report.items_ref(a.npa_matches)}), {report.pct(a.confidence)}%"
         for a in r.alternatives)
+
+
+def _review(r: ClassificationResult) -> str:
+    """Колонка «Проверить вручную»: да / нет / код уже подтверждён специалистом."""
+    return "код подтверждён специалистом" if r.code_confirmed else "да" if r.needs_review else "нет"
 
 
 def _edition(results: Sequence[ClassificationResult]) -> str:
@@ -119,7 +126,7 @@ def results_to_xlsx(results: Sequence[ClassificationResult]) -> bytes:
             "" if r.error else REGIME_LABELS[r.verdict],
             "" if r.error else _items(r),
             "" if r.error else report.pct(r.confidence),  # вниз, как на сайте: 0.7964 при пороге 80% — это 79%
-            "да" if r.needs_review else "нет",
+            _review(r),
             r.recommendation or report.recommendation(r),
             _alternatives(r),
             r.error or r.explanation,
@@ -148,7 +155,9 @@ def _justification_block(doc: Document, r: ClassificationResult) -> None:
         return
     doc.field("Код ОКПД2", f"{r.okpd2.code} — {r.okpd2.title}")
     matched = r.matched_text or r.okpd2.title
-    if matched.strip().lower() == r.okpd2.title.strip().lower():
+    if r.code_confirmed:
+        doc.field("Основание выбора кода", report.code_basis(r).split(": ", 1)[1])
+    elif matched.strip().lower() == r.okpd2.title.strip().lower():
         doc.field("Основание выбора кода", "наименование товара соответствует официальному наименованию кода в ОКПД2.")
     else:
         doc.field("Основание выбора кода",
@@ -170,8 +179,9 @@ def _justification_block(doc: Document, r: ClassificationResult) -> None:
         doc.field(f"Внимание, предстоящее изменение ({report.item_ref(m)})", f"{text}.")
     if r.npa_version or r.npa_source_url:
         doc.field("Источник", r.npa_version or r.npa_source_url, url=r.npa_source_url)
-    doc.field("Уверенность классификации", f"{report.pct(r.confidence)}%"
-              + (" — ниже порога, код требуется подтвердить вручную" if r.needs_review else ""))
+    if not r.code_confirmed:
+        doc.field("Уверенность классификации", f"{report.pct(r.confidence)}%"
+                  + (" — ниже порога, код требуется подтвердить вручную" if r.needs_review else ""))
     if r.alternatives:
         doc.para(("Альтернативные коды ОКПД2 и их режим:", {"bold": True}))
         rows = [["Код", "Наименование", "Режим", "Пункты ПП", "Увер."]]
@@ -230,3 +240,60 @@ def report_to_docx(results: Sequence[ClassificationResult], today: date | None =
         _justification_block(doc, r)
     _footer(doc, today or date.today())
     return doc.to_bytes()
+
+
+ANNOTATE_COLUMNS = ["Код ОКПД2", "Наименование ОКПД2", "Режим ПП 1875", "Пункты ПП 1875", "Уверенность, %",
+                    "Проверить вручную", "Рекомендация"]
+ANNOTATE_WIDTHS = (16, 40, 18, 28, 14, 16, 70)
+
+
+def annotate_xlsx(filename: str, data: bytes,
+                  classify: Callable[[list[str]], Sequence[ClassificationResult]]) -> bytes:
+    """Таблица специалиста с дописанными результатами: его строки, колонки и оформление остаются как есть,
+    справа от данных — код, режим, пункты ПП, уверенность и рекомендация; последним листом — сводка.
+
+    Наименования ищутся так же, как при проверке файла (io_files.locate_names), поэтому результат ложится
+    в те же строки. classify — классификация списка наименований (уже проверенные берутся из кэша)."""
+    if not filename.lower().endswith(".xlsx"):
+        raise FileReadError("Дописать результаты можно только в таблицу Excel (.xlsx)")
+    try:
+        wb = load_workbook(io.BytesIO(data))
+        ws = wb.active
+        rows = [list(r) for r in ws.iter_rows(values_only=True)]
+    except Exception:
+        raise FileReadError("Не удалось открыть Excel-файл. Сохраните его в формате .xlsx и попробуйте снова")
+    col, idx, header = locate_names(rows)
+    if not idx:
+        raise FileReadError("Не нашли в файле колонку с наименованиями товаров")
+    results = classify([str(rows[i][col]).strip() for i in idx])
+    first = ws.max_column + 1  # сразу за последней занятой колонкой
+    head_row = (header if header is not None else idx[0] - 1) + 1  # openpyxl считает строки с 1
+    if head_row >= 1:  # шапки нет и товары с первой строки — подписи колонок ставить некуда
+        for k, title in enumerate(ANNOTATE_COLUMNS):
+            cell = ws.cell(head_row, first + k, title)
+            cell.font, cell.fill, cell.alignment = BOLD, _fill(HEAD_FILL), WRAP
+    for i, r in zip(idx, results):
+        values = [
+            r.okpd2.code if r.okpd2 else "",
+            r.okpd2.title if r.okpd2 else "",
+            "" if r.error else REGIME_LABELS[r.verdict],
+            "" if r.error else _items(r),
+            "" if r.error else report.pct(r.confidence),
+            _review(r),
+            r.error or r.recommendation or report.recommendation(r),
+        ]
+        for k, v in enumerate(values):
+            ws.cell(i + 1, first + k, v).alignment = WRAP
+        if not r.error:
+            ws.cell(i + 1, first + 2).fill = _fill(REGIME_FILL[r.verdict.value])
+        if r.needs_review:
+            ws.cell(i + 1, first + 5).fill = _fill(REVIEW_FILL)
+    for k, width in enumerate(ANNOTATE_WIDTHS):
+        ws.column_dimensions[get_column_letter(first + k)].width = width
+    name = "Сводка ПП 1875"
+    if name in wb.sheetnames:  # файл уже проходил через сервис — сводку пересоздаём
+        del wb[name]
+    _summary_sheet(wb.create_sheet(name), results)
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()

@@ -1,4 +1,5 @@
-import { Alert, Anchor, Badge, Group, Stack, Table, Text } from "@mantine/core";
+import { Alert, Anchor, Badge, Button, Group, Stack, Table, Text } from "@mantine/core";
+import { useState } from "react";
 import { confidencePct } from "../confidence";
 import type { Alternative, ClassificationResult } from "../types";
 import { JustificationBlock } from "./JustificationBlock";
@@ -21,15 +22,51 @@ function AlternativeItems({ alt, onOpenItem }: { alt: Alternative; onOpenItem: (
   );
 }
 
-export function ResultDetails({ result, onOpenItem }: { result: ClassificationResult; onOpenItem: (id: number) => void }) {
+export function ResultDetails({ result, onOpenItem, onChooseCode }: {
+  result: ClassificationResult;
+  onOpenItem: (id: number) => void;
+  /** Специалист выбрал этот код (или подтвердил текущий): результат пересчитывается под него. */
+  onChooseCode?: (code: string) => Promise<void>;
+}) {
   const otherRegime = result.alternatives.some((a) => a.regime_differs);
+  const [busyCode, setBusyCode] = useState<string | null>(null);
+  const [chooseError, setChooseError] = useState<string | null>(null);
+
+  const choose = async (code: string) => {
+    if (!onChooseCode) return;
+    setBusyCode(code);
+    setChooseError(null);
+    try {
+      await onChooseCode(code);
+    } catch (e) {
+      setChooseError((e as Error).message);
+    } finally {
+      setBusyCode(null);
+    }
+  };
+
   return (
     <Stack gap="sm" p="sm">
       {result.recommendation && (
         <Alert variant="light" py="xs" title="Что делать" data-testid="recommendation"
           color={result.needs_review ? "orange" : REGIME_COLORS[result.verdict]}>
           {result.recommendation}
+          {onChooseCode && result.okpd2 && result.needs_review && !result.code_confirmed && (
+            <Group gap="xs" mt="xs" className="no-print">
+              <Button size="compact-sm" color="orange" loading={busyCode === result.okpd2.code} disabled={busyCode !== null}
+                onClick={() => choose(result.okpd2!.code)}>
+                Код {result.okpd2.code} верный — подтвердить
+              </Button>
+              {result.alternatives.length > 0 && <Text size="xs" c="dimmed">или выберите другой код в таблице ниже</Text>}
+            </Group>
+          )}
         </Alert>
+      )}
+
+      {result.code_confirmed && (
+        <Badge color="teal" variant="light" radius="xs" w="fit-content" style={{ textTransform: "none" }} data-testid="code-confirmed">
+          ✓ Код подтверждён специалистом{result.auto_code && result.auto_code !== result.okpd2?.code ? ` (система предлагала ${result.auto_code})` : ""}
+        </Badge>
       )}
 
       {result.explanation && <Text size="sm">{result.explanation}</Text>}
@@ -80,7 +117,7 @@ export function ResultDetails({ result, onOpenItem }: { result: ClassificationRe
               ? "Внимание: при другом коде режим будет другим — убедитесь, что выбранный код точнее описывает товар."
               : "При любом из этих кодов режим тот же, что у выбранного."}
           </Text>
-          <Table.ScrollContainer minWidth={560}>
+          <Table.ScrollContainer minWidth={640}>
             <Table verticalSpacing={6} withTableBorder data-testid="alternatives">
               <Table.Thead>
                 <Table.Tr>
@@ -88,6 +125,7 @@ export function ResultDetails({ result, onOpenItem }: { result: ClassificationRe
                   <Table.Th>Режим</Table.Th>
                   <Table.Th style={{ whiteSpace: "nowrap" }}>Пункт ПП</Table.Th>
                   <Table.Th>Уверенность</Table.Th>
+                  {onChooseCode && <Table.Th className="no-print" />}
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
@@ -105,6 +143,14 @@ export function ResultDetails({ result, onOpenItem }: { result: ClassificationRe
                     </Table.Td>
                     <Table.Td style={{ whiteSpace: "nowrap" }}><AlternativeItems alt={a} onOpenItem={onOpenItem} /></Table.Td>
                     <Table.Td><Text size="sm">{confidencePct(a.confidence)}%</Text></Table.Td>
+                    {onChooseCode && (
+                      <Table.Td className="no-print">
+                        <Button size="compact-sm" variant="light" loading={busyCode === a.code} disabled={busyCode !== null}
+                          onClick={() => choose(a.code)} aria-label={`Выбрать код ${a.code}`}>
+                          Выбрать
+                        </Button>
+                      </Table.Td>
+                    )}
                   </Table.Tr>
                 ))}
               </Table.Tbody>
@@ -112,6 +158,8 @@ export function ResultDetails({ result, onOpenItem }: { result: ClassificationRe
           </Table.ScrollContainer>
         </div>
       )}
+
+      {chooseError && <Text size="sm" c="red">{chooseError}</Text>}
 
       <JustificationBlock result={result} />
     </Stack>

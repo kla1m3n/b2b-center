@@ -215,6 +215,51 @@ class Pipeline:
             out.append(finalize(res))
         return out
 
+    def with_code(self, base: ClassificationResult, code: str, npa_version_id: int | None = None) -> ClassificationResult:
+        """Специалист выбрал (или подтвердил) код ОКПД2: режим, пункты ПП, рекомендация и обоснование — по этому коду.
+
+        base — результат автоматической классификации того же наименования. Прежний код уходит в альтернативы,
+        пометка «проверьте вручную» снимается. Неизвестный справочнику код — ValueError.
+        """
+        code = code.strip()
+        with self.session_factory() as session:
+            row = session.get(Okpd2Code, code)
+            if row is None:
+                raise ValueError(f"Код {code} не найден в справочнике ОКПД2")
+            version = session.get(NpaVersion, npa_version_id) if npa_version_id else get_active_version(session)
+            items = self._version_items(session, version.id) if version else []
+            source_url = version.source_url if version else ""
+            title = row.title
+        norm = normalize(base.input)
+        matches = rank_by_overlap(norm, match(code, items, source_url))
+        v = verdict(matches)
+        auto = base.auto_code or (base.okpd2.code if base.okpd2 else "")
+        chosen = next((a for a in base.alternatives if a.code == code), None)
+        if base.okpd2 is not None and base.okpd2.code == code:  # подтверждён уже выбранный код
+            conf, matched, others = base.confidence, base.matched_text, list(base.alternatives)
+        else:
+            conf, matched = (chosen.confidence if chosen else 0.0), title
+            others = [a for a in base.alternatives if a.code != code]
+            if base.okpd2 is not None:  # прежний код — первой альтернативой, со своим режимом
+                others.insert(0, Alternative(code=base.okpd2.code, title=base.okpd2.title, confidence=base.confidence,
+                                             verdict=base.verdict, npa_matches=base.npa_matches))
+        expl = f"Код ОКПД2 выбран специалистом: «{title}». Вердикт по ПП № 1875: {REGIME_LABELS[v].lower()}."
+        if not matches:
+            expl += " Код не входит в приложения 1–3 постановления: запрета и ограничения нет."
+        return finalize(ClassificationResult(
+            input=base.input, okpd2=Okpd2Ref(code=code, title=title), matched_text=matched,
+            alternatives=[a.model_copy(update={"regime_differs": a.verdict != v}) for a in others],
+            confidence=conf, needs_review=False, npa_matches=matches, verdict=v, explanation=expl,
+            npa_source_url=base.npa_source_url or source_url, npa_version=base.npa_version,
+            code_confirmed=True, auto_code=auto,
+        ))
+
+    def classify_with_codes(self, names: list[str], codes: list[str | None],
+                            npa_version_id: int | None = None) -> list[ClassificationResult]:
+        """classify_many + коды, выбранные специалистом (None — оставить автоматический)."""
+        results = self.classify_many(names, npa_version_id)
+        return [self.with_code(r, c, npa_version_id) if c else r for r, c in zip(results, codes)]
+
     def _classify_unique(self, session: Session, norms: list[str], version: NpaVersion | None) -> dict[str, dict]:
         lex = self._lexical(session)
         if self.s.spell_correction:  # исправленный текст идёт в поиск; ключ кэша — исходное нормализованное наименование

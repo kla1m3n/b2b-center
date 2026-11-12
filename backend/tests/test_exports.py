@@ -6,7 +6,7 @@ from xml.etree import ElementTree
 
 from openpyxl import load_workbook
 
-from app.exports import justification_to_docx, report_to_docx, results_to_xlsx
+from app.exports import annotate_xlsx, justification_to_docx, report_to_docx, results_to_xlsx
 from app.report import finalize
 from app.schemas import Alternative, ClassificationResult, NpaMatch, Okpd2Ref, Regime
 
@@ -125,3 +125,73 @@ def test_report_docx_has_summary_review_list_and_every_item():
     for part in ("1. Сводка по режимам", "2. Позиции для ручной проверки", "3. Обоснование по каждой позиции",
                  "Позиция 1", "Позиция 4", "Наименование товара: Хлеб", "Результат: Пустое или нераспознанное наименование"):
         assert part in text, part
+
+
+def spec_xlsx(rows) -> bytes:
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Спецификация"
+    for row in rows:
+        ws.append(row)
+    ws["B2"].font = Font(italic=True)  # оформление файла специалиста должно сохраниться
+    buf = BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+def test_annotate_xlsx_keeps_user_table_and_adds_columns_on_the_right():
+    seen = []
+
+    def classify(names):
+        seen.extend(names)
+        return [laptop(name=names[0]), bread(), broken()]
+
+    data = spec_xlsx([["№", "Наименование товара", "Кол-во", "Цена"], [1, "Ноутбук", 5, 70000], [2, "Хлеб", 100, 60],
+                      [None, None, None, None], [3, "Позиция без названия 123", 1, 10]])
+    wb = load_workbook(BytesIO(annotate_xlsx("spec.xlsx", data, classify)))
+    assert seen == ["Ноутбук", "Хлеб", "Позиция без названия 123"]
+    assert wb.sheetnames == ["Спецификация", "Сводка ПП 1875"]
+    ws = wb["Спецификация"]
+    rows = cells(ws)
+    # исходные колонки и строки на месте, оформление сохранено
+    assert rows[0][:4] == ["№", "Наименование товара", "Кол-во", "Цена"] and rows[1][:4] == [1, "Ноутбук", 5, 70000]
+    assert rows[4][:4] == [3, "Позиция без названия 123", 1, 10] and ws["B2"].font.italic
+    # новые колонки — сразу справа, подписи в строке шапки
+    assert rows[0][4:] == ["Код ОКПД2", "Наименование ОКПД2", "Режим ПП 1875", "Пункты ПП 1875", "Уверенность, %",
+                           "Проверить вручную", "Рекомендация"]
+    assert rows[1][4:10] == ["26.20.11.110", "Ноутбуки", "ОГРАНИЧЕНИЕ", "прил. 2 п. 195; прил. 3 п. 37 (доля 80%)", 92, "нет"]
+    assert "ограничение" in rows[1][10]
+    assert rows[2][4] == "10.71.11.110" and rows[2][6] == "НЕ ПОДПАДАЕТ"
+    assert all(v is None for v in rows[3])  # пустая строка осталась пустой
+    assert rows[4][4] in ("", None) and rows[4][9] == "да" and rows[4][10] == "Пустое или нераспознанное наименование"
+    summary = {row[0]: row for row in cells(wb["Сводка ПП 1875"]) if row[0]}
+    assert summary["Ограничение"][1] == 1 and summary["Всего"][1] == 3
+
+
+def test_annotate_xlsx_without_header_confirmed_code_and_rerun():
+    confirmed = laptop()
+    confirmed.code_confirmed = True
+    data = spec_xlsx([["Ноутбук", 5], ["Хлеб", 100]])
+    out = annotate_xlsx("spec.xlsx", data, lambda names: [confirmed, bread()])
+    rows = cells(load_workbook(BytesIO(out)).active)
+    assert rows[0][:3] == ["Ноутбук", 5, "26.20.11.110"] and rows[0][7] == "код подтверждён специалистом"
+    assert rows[1][:3] == ["Хлеб", 100, "10.71.11.110"]  # шапки не было — подписи колонок не вставляются
+    # повторный прогон уже размеченного файла не плодит листы сводки
+    again = load_workbook(BytesIO(annotate_xlsx("spec.xlsx", out, lambda names: [confirmed, bread()])))
+    assert again.sheetnames.count("Сводка ПП 1875") == 1
+
+
+def test_annotate_xlsx_errors_are_in_russian():
+    import pytest
+
+    from app.io_files import FileReadError
+
+    with pytest.raises(FileReadError, match="только в таблицу Excel"):
+        annotate_xlsx("spec.csv", b"a;b", lambda names: [])
+    with pytest.raises(FileReadError, match="Не удалось открыть"):
+        annotate_xlsx("spec.xlsx", b"not excel", lambda names: [])
+    with pytest.raises(FileReadError, match="Не нашли"):
+        annotate_xlsx("spec.xlsx", spec_xlsx([[1, 2], [3, 4]]), lambda names: [])

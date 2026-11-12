@@ -17,10 +17,12 @@ def _looks_like_name(value) -> bool:
     return isinstance(value, str) and len(value.strip()) >= 3 and bool(_has_letters.search(value))
 
 
-def _pick_column(rows: list[list]) -> list[str]:
-    """Колонка, где больше всего «наименований» (текст с буквами), без строки-шапки."""
+def locate_names(rows: list[list]) -> tuple[int, list[int], int | None]:
+    """Где в таблице наименования: (колонка, номера строк с товарами, номер строки-шапки или None). Всё с нуля.
+
+    Колонка — та, где больше всего «наименований» (текст с буквами); строка-шапка («Наименование…») — не товар."""
     if not rows:
-        return []
+        return 0, [], None
     width = max(len(r) for r in rows)
     best, best_score = 0, -1.0
     for col in range(width):
@@ -32,10 +34,16 @@ def _pick_column(rows: list[list]) -> list[str]:
         score = names / len(values) + min(avg_len, 60) / 600  # при равенстве — колонка с более длинным текстом
         if names / len(values) >= 0.6 and score > best_score:
             best, best_score = col, score
-    out = [str(r[best]).strip() for r in rows if best < len(r) and _looks_like_name(r[best])]
-    if out and HEADER_WORDS.match(out[0]):
-        out = out[1:]
-    return out
+    idx = [i for i, r in enumerate(rows) if best < len(r) and _looks_like_name(r[best])]
+    if idx and HEADER_WORDS.match(str(rows[idx[0]][best]).strip()):
+        return best, idx[1:], idx[0]
+    return best, idx, None
+
+
+def _pick_column(rows: list[list]) -> list[str]:
+    """Наименования из таблицы — по порядку строк."""
+    col, idx, _ = locate_names(rows)
+    return [str(rows[i][col]).strip() for i in idx]
 
 
 def _decode(data: bytes) -> str:

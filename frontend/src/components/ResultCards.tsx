@@ -10,10 +10,11 @@ interface Props {
   expanded: Set<number>;
   onToggle: (i: number) => void;
   onOpenItem: (id: number) => void;
+  onChooseCode?: (result: ClassificationResult, code: string) => Promise<void>;
 }
 
 /** Результаты на телефоне: карточки как записи реестра в ЕИС — режим сверху, затем товар, код и пункт ПП. */
-export function ResultCards({ results, expanded, onToggle, onOpenItem }: Props) {
+export function ResultCards({ results, expanded, onToggle, onOpenItem, onChooseCode }: Props) {
   return (
     <Stack gap="sm">
       {results.map((r, i) => {
@@ -35,6 +36,9 @@ export function ResultCards({ results, expanded, onToggle, onOpenItem }: Props) 
                 </Group>
 
                 <Text fw={500} mt={8} lh={1.35}>{r.input}</Text>
+                {r.code_confirmed && (
+                  <Badge color="teal" variant="light" size="sm" mt={6}>✓ Код подтверждён</Badge>
+                )}
                 {r.needs_review && (
                   <Badge color="orange" variant="light" size="sm" mt={6}>⚠ Проверьте вручную</Badge>
                 )}
@@ -74,7 +78,8 @@ export function ResultCards({ results, expanded, onToggle, onOpenItem }: Props) 
                 </UnstyledButton>
                 {isOpen && (
                   <Box mx={-12}>
-                    <ResultDetails result={r} onOpenItem={onOpenItem} />
+                    <ResultDetails result={r} onOpenItem={onOpenItem}
+                      onChooseCode={onChooseCode && ((code) => onChooseCode(r, code))} />
                   </Box>
                 )}
               </>

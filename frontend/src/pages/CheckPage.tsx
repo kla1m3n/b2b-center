@@ -1,6 +1,6 @@
 import { Alert, Anchor, Box, Button, FileButton, Group, Paper, Progress, Stack, Text, Textarea, Title } from "@mantine/core";
 import { useRef, useState, type DragEvent } from "react";
-import { REPORTS_AVAILABLE, classify, classifyBatch, classifyFile, downloadReport, getJob, type ReportKind } from "../api";
+import { REPORTS_AVAILABLE, classify, classifyBatch, classifyFile, downloadAnnotated, downloadReport, getJob, type ReportKind } from "../api";
 import { HistoryList } from "../components/HistoryList";
 import { HowItWorks } from "../components/HowItWorks";
 import { ResultsSummary } from "../components/ResultsSummary";
@@ -27,7 +27,9 @@ export function CheckPage() {
   const [jobId, setJobId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
-  const [reportBusy, setReportBusy] = useState<ReportKind | null>(null);
+  const [reportBusy, setReportBusy] = useState<ReportKind | "file" | null>(null);
+  // Загруженная таблица Excel: её можно получить обратно с дописанными результатами
+  const [sourceFile, setSourceFile] = useState<File | null>(null);
   const [history, setHistory] = useState<HistoryEntry[]>(loadHistory);
   const runId = useRef(0);
 
@@ -61,6 +63,7 @@ export function CheckPage() {
     setResults(null);
     setProgress(null);
     setJobId(null);
+    setSourceFile(null);
     try {
       await action(run);
     } catch (e) {
@@ -91,6 +94,7 @@ export function CheckPage() {
     run(async (r) => {
       const { job_id } = await classifyFile(file);
       await waitJob(job_id, r, `файл «${file.name}»`);
+      if (r === runId.current && /\.xlsx$/i.test(file.name)) setSourceFile(file);
     });
   };
 
@@ -118,17 +122,28 @@ export function CheckPage() {
     setError(null);
     setProgress(null);
     setJobId(null); // у сохранённых результатов нет задачи на backend → отчёт строится по наименованиям
+    setSourceFile(null);
     setResults(e.results);
     setFilter("all");
   };
 
   // Отчёт Excel или Word: по задаче пакета, а у одиночной проверки и результатов из истории — по наименованиям
-  const onReport = async (kind: ReportKind) => {
+  // Коды, выбранные специалистом, — по порядку позиций (null — код автоматический)
+  const manualCodes = (results ?? []).map((r) => (r.code_confirmed && r.okpd2 ? r.okpd2.code : null));
+
+  // Специалист выбрал другой код (или подтвердил текущий): позиция пересчитывается, сводка и отчёты — по новым данным
+  const onChooseCode = async (result: ClassificationResult, code: string) => {
+    const updated = await classify(result.input, code);
+    setResults((prev) => prev && prev.map((r) => (r === result ? updated : r)));
+  };
+
+  const onReport = async (kind: ReportKind | "file") => {
     if (!results) return;
     setReportBusy(kind);
     setError(null);
     try {
-      await downloadReport(kind, jobId, results.map((r) => r.input));
+      if (kind === "file") await downloadAnnotated(sourceFile!, manualCodes);
+      else await downloadReport(kind, jobId, results.map((r) => r.input), manualCodes);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -146,6 +161,12 @@ export function CheckPage() {
           <Button variant="light" loading={reportBusy === "docx"} disabled={reportBusy !== null} onClick={() => onReport("docx")}>
             Отчёт Word
           </Button>
+          {sourceFile && (
+            <Button variant="light" loading={reportBusy === "file"} disabled={reportBusy !== null} onClick={() => onReport("file")}
+              title="Ваша таблица как есть — справа дописаны код, режим, пункт ПП и рекомендация">
+              Мой файл с результатами
+            </Button>
+          )}
         </>
       ) : (
         <Button variant="light" onClick={() => downloadCsv(results)}>Скачать таблицу (CSV)</Button>
@@ -230,7 +251,7 @@ export function CheckPage() {
           )}
           {shown.length > 0 ? (
             // key: при смене фильтра сбрасываем раскрытые строки (они по индексу)
-            <ResultsTable key={filter} results={shown} />
+            <ResultsTable key={filter} results={shown} onChooseCode={onChooseCode} />
           ) : (
             <Text c="dimmed" size="sm">Нет строк с таким результатом.</Text>
           )}

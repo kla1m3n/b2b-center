@@ -136,7 +136,7 @@ function alternative(code: string, title: string, confidence: number, chosen: Re
 export function classifySync(name: string): ClassificationResult {
   const norm = name.toLowerCase().replace(/ё/g, "е").trim();
   if (!/[a-zа-я]{2,}/.test(norm)) {
-    return finalize({ input: name, okpd2: null, matched_text: "", alternatives: [], confidence: 0, needs_review: true, npa_matches: [], verdict: "none", explanation: "", error: "Пустое или нераспознанное наименование", npa_source_url: SOURCE_URL, npa_version: VERSION_TITLE, recommendation: "", justification: "" });
+    return finalize({ input: name, okpd2: null, matched_text: "", alternatives: [], confidence: 0, needs_review: true, npa_matches: [], verdict: "none", explanation: "", error: "Пустое или нераспознанное наименование", npa_source_url: SOURCE_URL, npa_version: VERSION_TITLE, recommendation: "", justification: "", code_confirmed: false, auto_code: "" });
   }
   const rule = RULES.find((r) => r.words.some((w) => norm.includes(w)));
   if (!rule) {
@@ -158,6 +158,8 @@ export function classifySync(name: string): ClassificationResult {
       npa_version: VERSION_TITLE,
       recommendation: "",
       justification: "",
+      code_confirmed: false,
+      auto_code: "",
     });
   }
   const matches = matchItems(rule.code);
@@ -179,6 +181,38 @@ export function classifySync(name: string): ClassificationResult {
     npa_version: VERSION_TITLE,
     recommendation: "",
     justification: "",
+    code_confirmed: false,
+    auto_code: "",
+  });
+}
+
+/** Специалист выбрал (или подтвердил) код — как Pipeline.with_code на backend: режим и пункты по этому коду,
+ *  прежний код уходит в альтернативы, пометка «проверьте вручную» снимается. */
+export function withCodeSync(base: ClassificationResult, code: string): ClassificationResult {
+  const npa_matches = matchItems(code);
+  const verdict = verdictOf(npa_matches);
+  const same = base.okpd2?.code === code;
+  const chosen = base.alternatives.find((a) => a.code === code);
+  const title = same ? base.okpd2!.title : chosen?.title ?? RULES.find((r) => r.code === code)?.title ?? "Код, выбранный специалистом";
+  const others = same ? base.alternatives : [
+    ...(base.okpd2 ? [{ code: base.okpd2.code, title: base.okpd2.title, confidence: base.confidence, verdict: base.verdict, npa_matches: base.npa_matches, regime_differs: false }] : []),
+    ...base.alternatives.filter((a) => a.code !== code),
+  ];
+  const labels: Record<Regime, string> = { ban: "запрет", restriction: "ограничение", advantage: "преимущество", none: "не подпадает" };
+  return finalize({
+    ...base,
+    okpd2: { code, title },
+    matched_text: same ? base.matched_text : title,
+    alternatives: others.map((a) => ({ ...a, regime_differs: a.verdict !== verdict })),
+    confidence: same ? base.confidence : chosen?.confidence ?? 0,
+    needs_review: false,
+    npa_matches,
+    verdict,
+    explanation: `Код ОКПД2 выбран специалистом: «${title}». Вердикт по ПП № 1875: ${labels[verdict]}.`
+      + (npa_matches.length ? "" : " Код не входит в приложения 1–3 постановления: запрета и ограничения нет."),
+    error: null,
+    code_confirmed: true,
+    auto_code: base.auto_code || base.okpd2?.code || "",
   });
 }
 
@@ -187,9 +221,9 @@ export async function getHealth(): Promise<HealthOut> {
   return { status: "ok", db: true, models: true, npa_version: VERSION_TITLE, npa_upload_protected: true };
 }
 
-export async function classify(name: string): Promise<ClassificationResult> {
+export async function classify(name: string, code?: string): Promise<ClassificationResult> {
   await delay(300);
-  return classifySync(name);
+  return code ? withCodeSync(classifySync(name), code) : classifySync(name);
 }
 
 // --- пакеты: имитация очереди Celery, ~150 мс на товар ---

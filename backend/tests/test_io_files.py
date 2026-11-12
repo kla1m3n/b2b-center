@@ -45,3 +45,13 @@ def test_unsupported_or_broken_file_has_russian_error():
         read_names("a.pdf", b"%PDF")
     with pytest.raises(FileReadError, match="Не удалось"):
         read_names("a.xlsx", b"not excel")
+
+
+def test_locate_names_finds_column_rows_and_header():
+    from app.io_files import locate_names
+
+    rows = [["Спецификация", None, None], ["№", "Наименование товара", "Кол-во"], [1, "Ноутбук Lenovo", 10],
+            [None, None, None], [2, "Бумага А4", 500]]
+    assert locate_names(rows) == (1, [2, 4], 1)
+    assert locate_names([["Ноутбук", 1], ["Монитор 27", 2]]) == (0, [0, 1], None)
+    assert locate_names([]) == (0, [], None)

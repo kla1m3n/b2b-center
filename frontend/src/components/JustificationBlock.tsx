@@ -17,7 +17,7 @@ export function JustificationBlock({ result }: { result: ClassificationResult })
     setBusy(true);
     setError(null);
     try {
-      await downloadJustification(result.input);
+      await downloadJustification(result.input, result.code_confirmed ? result.okpd2?.code : undefined);
     } catch (e) {
       setError((e as Error).message);
     } finally {

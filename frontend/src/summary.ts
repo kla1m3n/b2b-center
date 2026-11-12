@@ -40,7 +40,8 @@ export function summarize(results: ClassificationResult[]): ReportSummary {
     }),
     needs_review: review,
     needs_review_share: share(review),
-    lowest_confidence: [...ok]
+    // код, подтверждённый специалистом, проверять уже не нужно — в этот список он не идёт
+    lowest_confidence: ok.filter(({ r }) => !r.code_confirmed)
       .sort((a, b) => a.r.confidence - b.r.confidence || a.idx - b.idx)
       .slice(0, LOWEST_N)
       .map(({ r, idx }) => ({ idx, input: r.input, code: r.okpd2!.code, verdict: r.verdict, confidence: r.confidence })),

@@ -64,6 +64,10 @@ class ClassificationResult(BaseModel):
     npa_version: str = ""  # название редакции ПП, по которой определён режим
     recommendation: str = ""  # что делать специалисту при таком режиме (app/report.py)
     justification: str = ""  # готовый текст обоснования для документации или служебной записки
+    # Код выбран или подтверждён специалистом (POST /api/classify с полем code): пометка «проверьте вручную»
+    # снята, режим и пункты ПП пересчитаны по этому коду; confidence — оценка системы для этого кода
+    code_confirmed: bool = False
+    auto_code: str = ""  # код, который система предлагала автоматически (если специалист выбрал другой)
 
 
 class RegimeShare(BaseModel):

@@ -195,3 +195,19 @@ def test_warning_without_recognizable_date_still_shown():
     r = result(Regime.restriction, [npa(2, "195", note="Внимание: позиция будет изменена")])
     assert "Внимание, предстоящее изменение (прил. № 2, п. 195): позиция будет изменена." in r.justification
     assert "У пункта (прил. № 2, п. 195) есть предстоящее изменение — сверьте с текстом ПП." in r.recommendation
+
+
+def test_code_confirmed_by_specialist_changes_texts_and_summary():
+    """Код выбран специалистом: без «сначала подтвердите», в обосновании — кто выбрал код, оценки системы нет."""
+    alt = Alternative(code="26.20.15.120", title="Системные блоки", confidence=0.61, verdict=Regime.restriction,
+                      npa_matches=[npa(2, "195")], regime_differs=True)
+    r = result(Regime.ban, [npa(1, "27")], conf=0.31, review=False, alternatives=[alt], code_confirmed=True,
+               auto_code="26.20.15.120")
+    assert "Сначала подтвердите" not in r.recommendation and r.recommendation.startswith("Закупка товара иностранного")
+    assert "Основание выбора кода: код выбран специалистом вручную (автоматически предлагался код 26.20.15.120)." in r.justification
+    assert "Уверенность классификации" not in r.justification
+    assert "26.20.15.120 — Системные блоки: ограничение" in r.justification  # прежний код остаётся среди альтернатив
+    same = result(Regime.restriction, [npa(2, "195")], conf=0.5, code_confirmed=True, auto_code="26.20.11.110")
+    assert "подобран автоматически по наименованию товара и подтверждён специалистом" in same.justification
+    s = summarize([r, result(Regime.none, conf=0.9, input="Хлеб")])
+    assert s.needs_review == 0 and [x.input for x in s.lowest_confidence] == ["Хлеб"]  # подтверждённый проверять не нужно

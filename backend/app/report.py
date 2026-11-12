@@ -105,7 +105,7 @@ def recommendation(r: ClassificationResult) -> str:
     top = next((m for m in r.npa_matches if m.regime == r.verdict), None)
     ref = f" ({item_ref(top)})" if top is not None else ""  # пункта может не быть у результата из старого кэша
     parts = []
-    if r.needs_review:
+    if r.needs_review and not r.code_confirmed:
         parts.append(f"Сначала подтвердите код ОКПД2 вручную: уверенность {pct(r.confidence)}%.")
         other = next((a for a in r.alternatives if a.regime_differs), None)
         if other is not None:
@@ -154,7 +154,9 @@ def justification(r: ClassificationResult) -> str:
         f"Код ОКПД2: {r.okpd2.code} — {r.okpd2.title}",
     ]
     matched = r.matched_text or r.okpd2.title
-    if matched.strip().lower() == r.okpd2.title.strip().lower():
+    if r.code_confirmed:
+        lines.append(code_basis(r))
+    elif matched.strip().lower() == r.okpd2.title.strip().lower():
         lines.append("Основание выбора кода: наименование товара соответствует официальному наименованию кода "
                      f"в ОКПД2 — «{r.okpd2.title}».")
     else:
@@ -177,13 +179,21 @@ def justification(r: ClassificationResult) -> str:
     source = " ".join(x for x in (r.npa_version, r.npa_source_url) if x)
     if source:
         lines.append(f"Источник: {source}")
-    lines.append(f"Уверенность классификации: {pct(r.confidence)}%"
-                 + (" — ниже порога, код требуется подтвердить вручную." if r.needs_review else "."))
+    if not r.code_confirmed:  # у кода, выбранного специалистом, оценка системы в документе не нужна
+        lines.append(f"Уверенность классификации: {pct(r.confidence)}%"
+                     + (" — ниже порога, код требуется подтвердить вручную." if r.needs_review else "."))
     if r.alternatives:
         lines.append("Альтернативные коды ОКПД2 и их режим:")
         lines += [f"  — {_alt_line(a)}" for a in r.alternatives]
     lines.append(f"Рекомендация: {r.recommendation or recommendation(r)}")
     return "\n".join(lines)
+
+
+def code_basis(r: ClassificationResult) -> str:
+    """Основание выбора кода, когда его выбрал или подтвердил специалист."""
+    if r.auto_code and r.okpd2 is not None and r.auto_code != r.okpd2.code:
+        return (f"Основание выбора кода: код выбран специалистом вручную (автоматически предлагался код {r.auto_code}).")
+    return "Основание выбора кода: код подобран автоматически по наименованию товара и подтверждён специалистом."
 
 
 def finalize(r: ClassificationResult) -> ClassificationResult:
@@ -208,7 +218,8 @@ def summarize(results: Sequence[ClassificationResult]) -> ReportSummary:
         n = sum(r.verdict == regime for _, r in ok)
         by_regime.append(RegimeShare(regime=regime, label=REGIME_NAMES[regime], count=n, share=share(n)))
     review = sum(bool(r.needs_review) for _, r in ok)
-    lowest = sorted(ok, key=lambda x: (x[1].confidence, x[0]))[:LOWEST_N]
+    # код, подтверждённый специалистом, проверять уже не нужно — в список наименьшей уверенности он не идёт
+    lowest = sorted((x for x in ok if not x[1].code_confirmed), key=lambda x: (x[1].confidence, x[0]))[:LOWEST_N]
     return ReportSummary(
         total=total,
         errors=total - len(ok),

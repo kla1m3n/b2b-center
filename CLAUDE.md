@@ -6,7 +6,11 @@
 ## Архитектура
 
 - `backend/app/classifier/` — конвейер (`pipeline.py`): `normalize.py` → `retriever.py` (pgvector, top-K×`OVERFETCH`,
-  свёртка по коду) + `lexical.py` (RRF) → `rerank.py` → `matcher.py` (сверка с ПП, **без ИИ**) → `confidence.py`.
+  свёртка по коду) + `lexical.py` (RRF) → `rerank.py` → `ktru.py` (дословное совпадение с позицией КТРУ из
+  `data/ktru_names.csv` → её код первым) → `matcher.py` (сверка с ПП, **без ИИ**) → `confidence.py`.
+- Замер модели: правила (`rerank.py`, `ktru.py`, порог BM25) меняют вердикт сильнее, чем смена модели. Новую модель
+  сравнивать и «в чистом виде» (только поиск по смыслу), и в конвейере; dev на 70% — названия КТРУ, силу модели
+  показывают testset, stress и validation.
 - `embedder.py` — модель эмбеддингов: ONNX Runtime (по умолчанию) или torch. `prefixes()` выбирает префиксы
   **по имени модели**: `e5` → `query: `/`passage: `, `frida` → `search_query: `/`search_document: `. В имени модели
   (HF-репозиторий или папка) обязательно должно быть `e5` или `frida`.

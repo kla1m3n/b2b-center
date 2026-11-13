@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.classifier.confidence import calibrated
 from app.classifier.embedder import Embedder
+from app.classifier.ktru import KtruNames
 from app.classifier.ensemble import EnsembleIndex
 from app.classifier.lexical import LexicalIndex, rrf
 from app.classifier.matcher import match, rank_by_overlap, verdict
@@ -45,12 +46,15 @@ class Pipeline:
         self._lex: LexicalIndex | None = None
         self._speller: Speller | None = None
         self._ens: EnsembleIndex | None = None
+        self._ktru: KtruNames | None = None
         self._lock = threading.Lock()
 
     def warmup(self) -> None:
         if self.embedder is None:
             self.embedder = Embedder(self.s.embed_model, self.s.device)
         self.embedder.encode_queries(["прогрев"])
+        if self.s.ktru_lookup:
+            self._ktru = KtruNames.load(Path(self.s.data_dir) / "ktru_names.csv")
         with self.session_factory() as session:  # позиции активной редакции ПП — в память при старте
             version = get_active_version(session)
             if version:
@@ -138,6 +142,20 @@ class Pipeline:
         best = pool[regimes.index(win)]
         return [best] + [c for c in cands if c is not best]
 
+    def _ktru_first(self, session: Session, norm: str, cands: list[Candidate]) -> list[Candidate]:
+        """Наименование дословно совпало с позицией КТРУ — её код ОКПД2 первым, остальные кандидаты как были."""
+        hit = self._ktru.lookup(norm) if self._ktru else None
+        if hit is None:
+            return cands
+        code, text = hit
+        title = next((c.title for c in cands if c.code == code), None) or session.scalar(
+            select(Okpd2Code.title).where(Okpd2Code.code == code, Okpd2Code.is_leaf.is_(True)))
+        if title is None:  # кода нет в справочнике ОКПД2 этой базы
+            return cands
+        # оценка 1,0: это не близость по смыслу, а совпадение со строкой официального каталога
+        return [Candidate(code=code, title=title, score=1.0, matched_text=text, exact=True)] + \
+            [c for c in cands if c.code != code]
+
     def _version_items(self, session: Session, version_id: int) -> list:
         with self._lock:
             if version_id not in self._items:
@@ -156,7 +174,9 @@ class Pipeline:
                                         verdict=Regime.none).model_dump(mode="json")
         v = verdict(matches)
         expl = f"Наиболее близкое наименование ОКПД2: «{best.title}»"
-        if best.matched_text != best.title:
+        if best.exact:
+            expl += f" (наименование совпадает с позицией КТРУ «{best.matched_text}»)"
+        elif best.matched_text != best.title:
             expl += f" (совпадение по «{best.matched_text}»)"
         expl += f". Вердикт по ПП № 1875: {REGIME_LABELS[v].lower()}."
         if not matches:
@@ -276,7 +296,7 @@ class Pipeline:
         if self.s.lexical_search:
             cand_lists = [self._fuse(session, q, qv, c, lk)
                           for q, qv, c, lk in zip(queries, qvecs, cand_lists, lookups)]
-        cand_lists = [prefer_medical(q, prefer_goods(q, c)) for q, c in zip(queries, cand_lists)]
+        cand_lists = [prefer_medical(q, prefer_goods(q, c), self.s.medical_by_score) for q, c in zip(queries, cand_lists)]
         items = self._version_items(session, version.id) if version else []
         source_url = version.source_url if version else ""
         out = {}
@@ -285,6 +305,7 @@ class Pipeline:
                 continue
             if self.s.verdict_vote and items:
                 cands = self._vote(q, cands, items)
+            cands = self._ktru_first(session, norm, cands)
             matches = rank_by_overlap(norm, match(cands[0].code, items, source_url))
             # режим и пункты ПП альтернативных кодов — тем же matcher: при другом коде режим может быть другим
             alt_matches = [rank_by_overlap(norm, match(c.code, items, source_url)) for c in cands[1:4]]

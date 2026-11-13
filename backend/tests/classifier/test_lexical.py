@@ -6,6 +6,7 @@ def test_tokens_match_word_forms():
     assert tokens("Плиты древесно-стружечные") == tokens("плита древесно-стружечная 16")
     assert tokens("Автомобили легковые") == tokens("автомобиль легковой")
     assert tokens("для дома 500") == ["дом"]
+    assert tokens("котел газовый 100 кВт") == tokens("котел газовый")       # единицы измерения не слова товара
 
 
 def test_tokens_keep_different_words_apart():

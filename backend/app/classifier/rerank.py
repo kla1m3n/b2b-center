@@ -9,7 +9,8 @@ _SERVICE_TITLE = re.compile(r"^(услуги|работы)\b", re.IGNORECASE)
 # Признаки того, что закупается именно услуга или работа
 _SERVICE_QUERY = re.compile(
     r"услуг|работ|ремонт|обслуж|монтаж|установк|доставк|перевоз|транспортир|аренд|прокат|изготовлен|пошив|"
-    r"разработк|проведени|оказани|сервис|страхов|обучени|консультац|уборк|вывоз|утилизац|техническ\w* поддержк",
+    r"разработк|проведени|оказани|сервис|страхов|обучени|консультац|уборк|вывоз|утилизац|техническ\w* поддержк|"
+    r"тираж|печатани",  # «Печать брошюр, тираж 500 экз.» — услуга печати, а не брошюровочная машина
     re.IGNORECASE,
 )
 
@@ -38,15 +39,25 @@ def is_medical_code(code: str) -> bool:
     return code.replace(".", "").startswith(_MEDICAL_PREFIXES)
 
 
-def prefer_medical(query: str, cands: list[Candidate]) -> list[Candidate]:
+def _is_medical(c: Candidate) -> bool:
+    """Медицинский раздел или совпадение с медицинским синонимом («костюм медицинский» у 14.12.30.190)."""
+    return is_medical_code(c.code) or "медицин" in c.matched_text.lower()
+
+
+def prefer_medical(query: str, cands: list[Candidate], by_score: bool = False) -> list[Candidate]:
     """Для товара с пометкой ЕИС «является медицинским изделием» коды медицинских изделий идут первыми.
 
     Без этого «Цемент костный (является медицинским изделием)» уходит в «Цементы общестроительные»,
     а «Шкаф для хранения лекарственных средств» — в «Банки стеклянные».
+    by_score: медицинские кандидаты — по сходству, а не в порядке слияния, и медицинским считается совпадение
+    с медицинским синонимом. Иначе «Костюм изолирующий» (0,73 у «костюм медицинский») уступал «маске» (0,40).
     """
     if not query.startswith(_MEDICAL_QUERY):
         return cands
-    med = [c for c in cands if is_medical_code(c.code)]
+    is_med = _is_medical if by_score else (lambda c: is_medical_code(c.code))
+    med = [c for c in cands if is_med(c)]
+    if by_score:
+        med.sort(key=lambda c: -c.score)
     return med + [c for c in cands if c not in med] if med else cands
 
 

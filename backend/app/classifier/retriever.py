@@ -17,6 +17,7 @@ class Candidate:
     title: str
     score: float
     matched_text: str
+    exact: bool = False  # дословное совпадение с позицией КТРУ (classifier/ktru.py), а не результат поиска
 
 
 def _break_ties(session: Session, vec: list[float], cands: list[Candidate]) -> list[Candidate]:

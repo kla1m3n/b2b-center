@@ -33,11 +33,14 @@ function useHealth() {
   return { health, offline };
 }
 
+// Знак как в презентации и трейлере: сетка 3×3 в оттенках синего ЕИС
+const LOGO_COLORS = ["#418AE8", "#0065DD", "#6EA4EE", "#0065DD", "#A0C3F4", "#418AE8", "#6EA4EE", "#418AE8", "#0065DD"];
+
 function Logo() {
   return (
     <Group gap={12} wrap="nowrap">
       <div className="logo-mark" aria-hidden>
-        {Array.from({ length: 16 }, (_, i) => <span key={i} />)}
+        {LOGO_COLORS.map((c, i) => <span key={i} style={{ background: c }} />)}
       </div>
       <div className="logo-text">
         ПП № 1875<br />Классификатор

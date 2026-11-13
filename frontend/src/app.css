@@ -14,17 +14,12 @@
 
 .logo-mark {
   display: grid;
-  grid-template-columns: repeat(4, 6px);
-  gap: 3px;
+  grid-template-columns: repeat(3, 13px);
+  gap: 5px;
 }
 .logo-mark span {
-  width: 6px;
-  height: 6px;
-  border-radius: 1px;
-  background: var(--mantine-color-eis-6);
-}
-.logo-mark span:nth-child(3n) {
-  opacity: 0.45;
+  width: 13px;
+  height: 13px;
 }
 .logo-text {
   color: var(--mantine-color-eis-6);

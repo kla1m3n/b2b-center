@@ -1,7 +1,7 @@
 import { ActionIcon, Anchor, Badge, Table, Text, Tooltip } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
 import { Fragment, useState } from "react";
-import { shortAction } from "../summary";
+import { lowerFirst, shortAction } from "../summary";
 import type { ClassificationResult } from "../types";
 import { ConfidenceCell } from "./ConfidenceCell";
 import { NotInAppendices } from "./NotInAppendices";
@@ -89,7 +89,10 @@ export function ResultsTable({ results, onChooseCode }: {
                         <Table.Td>
                           <RegimeBadge regime={r.verdict} />
                           <Tooltip label={r.recommendation} multiline w={420} withArrow disabled={!r.recommendation}>
-                            <Text size="xs" c={r.needs_review ? "orange.8" : "dimmed"} mt={4} style={NOWRAP}>{shortAction(r)}</Text>
+                            {/* «Рекомендация:» — чтобы «ЗАПРЕТ» и «закупать российский товар» не читались как одна фраза */}
+                            <Text size="xs" c={r.needs_review ? "orange.8" : "dimmed"} mt={4} data-testid="short-action">
+                              Рекомендация: {lowerFirst(shortAction(r))}
+                            </Text>
                           </Tooltip>
                         </Table.Td>
                         <Table.Td style={NOWRAP}>

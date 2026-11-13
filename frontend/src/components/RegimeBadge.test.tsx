@@ -30,8 +30,8 @@ describe("ResultsTable", () => {
     expect(screen.getByText("ОГРАНИЧЕНИЕ")).toBeInTheDocument();
     expect(screen.getByText("Прил. 2, п. 1")).toBeInTheDocument();
     expect(screen.getByText("97%")).toBeInTheDocument();
-    expect(screen.getByText("Установить ограничение")).toBeInTheDocument();
-    expect(screen.getByText("Ограничений нет")).toBeInTheDocument();
+    expect(screen.getByText("Рекомендация: установить ограничение")).toBeInTheDocument();
+    expect(screen.getByText("Рекомендация: закупать на общих основаниях")).toBeInTheDocument();
   });
 
   it("показывает ошибку вместо результата", () => {

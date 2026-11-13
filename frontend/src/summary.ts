@@ -16,8 +16,11 @@ export const REGIME_ACTIONS: Record<Regime, string> = {
   ban: "Закупать российский товар",
   restriction: "Установить ограничение",
   advantage: "Учесть в доле закупок",
-  none: "Ограничений нет",
+  none: "Закупать на общих основаниях",
 };
+
+/** «Закупать российский товар» → «закупать российский товар» (после «Рекомендация:»). */
+export const lowerFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
 
 export function shortAction(r: ClassificationResult): string {
   if (r.error) return "Уточнить наименование";
